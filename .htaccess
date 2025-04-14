@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Redirect URLs like /login to index.php?page=login
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([^/]+)/?$ index.php?page=$1 [L,QSA]
+page=$1 [L,QSA]
+

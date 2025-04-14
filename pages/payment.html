@@ -1,0 +1,75 @@
+<?php
+require_once __DIR__ . '/../src/functions.php';
+secureSession();
+check_auth();
+
+$user = $_SESSION['user'];
+$error = '';
+$success = '';
+
+// Handle file upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['payment_proof'])) {
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    $maxSize = 2 * 1024 * 1024; // 2MB
+    
+    $file = $_FILES['payment_proof'];
+    
+    if (!in_array($file['type'], $allowedTypes)) {
+        $error = "Only JPG, PNG, and GIF files are allowed.";
+    } elseif ($file['size'] > $maxSize) {
+        $error = "File size exceeds 2MB limit.";
+    } else {
+        $uploadDir = __DIR__ . '/../uploads/payment_proofs/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $fileName = uniqid('proof_') . '_' . basename($file['name']);
+        $targetPath = $uploadDir . $fileName;
+        
+        if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+            // Save to database
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO payment_proofs (user_id, file_path)
+                    VALUES (:user_id, :file_path)
+                ");
+                $stmt->execute([
+                    ':user_id' => $user['id'],
+                    ':file_path' => $fileName
+                ]);
+                $success = "Payment proof uploaded successfully!";
+            } catch (PDOException $e) {
+                $error = "Error saving payment proof: " . $e->getMessage();
+            }
+        } else {
+            $error = "Error uploading file.";
+        }
+    }
+}
+?>
+<!-- Keep existing HTML structure -->
+<!-- Modify these sections -->
+<div class="detail-row">
+    <span class="detail-label">Username:</span>
+    <span class="detail-value"><?= htmlspecialchars($user['username']) ?></span>
+</div>
+
+<!-- Update form handling -->
+<form id="uploadForm" method="POST" enctype="multipart/form-data">
+    <input type="file" id="fileInput" name="payment_proof" accept="image/*" hidden>
+    <!-- ... rest of the form ... -->
+</form>
+
+<!-- Add error/success messages -->
+<?php if ($error): ?>
+<div class="error-message">
+    <?= htmlspecialchars($error) ?>
+</div>
+<?php endif; ?>
+
+<?php if ($success): ?>
+<div class="success-message">
+    <?= htmlspecialchars($success) ?>
+</div>
+<?php endif; ?>
