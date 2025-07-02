@@ -556,6 +556,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	        <p class="payment-subtitle">Complete your analyst verification by making payment</p>
 	
 	        <div class="payment-details">
+	            <div class="detail-row">
+	            <span class="detail-label">Pay Amount:</span>
+	            <span class="detail-value">N500</span>
+	          </div>
 	          <div class="detail-row">
 	          <span class="detail-label">Username:</span>
 	          <span class="detail-value"><?= htmlspecialchars($user['username']) ?></span>
@@ -570,7 +574,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	          </div>
 	          <div class="detail-row">
 	            <span class="detail-label">Account Name:</span>
-	            <span class="detail-value">Penniepoint</span>
+	            <span class="detail-value">Uroh Patience</span>
 	          </div>
 	        </div>
 	

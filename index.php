@@ -10,10 +10,10 @@ if ($request_uri == '' || $request_uri == 'index.php') {
 }
 
 // Define available pages
-$pages = ['home', 'login', 'register', 'dashboard', 'profile', 'forgot_password', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','stages','faqs'];
+$pages = ['home', 'login', 'register', 'dashboard', 'profile', 'forgot_password', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','stages','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer'];
 
 // Retrieve query parameters safely
-$referral = $_GET['referral'] ?? NULL; // Example: ?token=abc123
+$partnercode = $_GET['partnercode'] ?? NULL; // Example: ?token=abc123
 
 // Debugging: Print token (Remove in production
 // Check if the requested page exists

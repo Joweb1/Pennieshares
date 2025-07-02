@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/assets_functions.php';
 
 function getUserByEmail($email) {
     global $pdo;
@@ -167,11 +168,98 @@ function deleteUser($user_id){
 	echo "Error deleting account.";
 	}
 }
+
+function deleteUserAccount($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error deleting user account: " . $e->getMessage());
+        return false;
+    }
+}
 // Function to validate CSRF Token
 	function verifyCsrfToken($token) {
 	if (!isset($_SESSION['csrf_token']) || $_SESSION['csrf_token'] !== $token) {
 	die("CSRF validation failed.");
 	}
 	}
+
+function creditUserWallet($userId, $amount) {
+    global $pdo;
+    if (!is_numeric($amount) || $amount <= 0) {
+        return false;
+    }
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :id");
+        $result = $stmt->execute([':amount' => $amount, ':id' => $userId]);
+        return $result;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+function getUserByIdOrName($pdo, $identifier) {
+    if (is_numeric($identifier)) {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$identifier]);
+    } else {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?"); // Assuming username for string identifier
+        $stmt->execute([$identifier]);
+    }
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
+    if (!is_numeric($amount) || $amount <= 0) {
+        return ['success' => false, 'message' => "Invalid transfer amount."];
+    }
+
+    if ($senderId == $receiverId) {
+        return ['success' => false, 'message' => "Cannot transfer to yourself."];
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        // Check sender's balance
+        $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
+        $stmt->execute([$senderId]);
+        $senderBalance = $stmt->fetchColumn();
+
+        if ($senderBalance < $amount) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => "Insufficient funds."];
+        }
+
+        // Deduct from sender
+        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?");
+        $stmt->execute([$amount, $senderId]);
+
+        // Add to receiver
+        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?");
+        $stmt->execute([$amount, $receiverId]);
+
+        $pdo->commit();
+        return ['success' => true, 'message' => "Transfer successful."];
+
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Wallet transfer failed: " . $e->getMessage());
+        return ['success' => false, 'message' => "Database error during transfer."];
+    }
+}
+
+function assignAdminRole($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET is_admin = 1 WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error assigning admin role: " . $e->getMessage());
+        return false;
+    }
+}
 
 ?>

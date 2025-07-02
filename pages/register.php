@@ -76,9 +76,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <!-- Font Awesome (CDN) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <!-- Link to CSS file -->
-    <style type="text/css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+<style>
+
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
     /* Basic reset */
     * {
     margin: 0;
@@ -88,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     /* Body styling */
     body {
-    font-family: Arial, sans-serif;
+    font-family: "Roboto", sans-serif;
     background-color: #ffffff;
     color: #000000;
     }
@@ -98,9 +103,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     width: 400px;
     max-width: 90%;
     margin: 40px auto;
-    border: 1px solid #ddd;
+    border: 1px solid rgba(215,215,255,0.5);
     padding: 30px 20px;
-    border-radius: 8px;
+    border-radius: 50px;
     position: relative; /* allows us to position the logo circle in the corner */
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
@@ -118,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     align-items: center;
     justify-content: center;
     }
-    
+
     .logo-img {
     width: 58px;
     height:auto;
@@ -141,13 +146,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     .container h2 {
     text-align: center;
-    color: red;
+    color: black;
     font-size: 24px;
     margin: 20px 0;
     background: linear-gradient(180deg, 
-    rgba(175,14,0,1),  /* Darkish gold */
-    rgba(220,20,40,1), /* Classic gold */
-    rgba(125,58,0,1) 60% /* Darkish gold */
+    rgba(75,14,200,1),  /* Darkish gold */
+    rgba(20,20,150,1), /* Classic gold */
+    rgba(15,18,100,1) 60% /* Darkish gold */
     );
     background-size: 100%;
     
@@ -191,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     width: 100%;
     padding: 10px 10px 10px 35px; 
     border: 1px solid #001970;
-    border-radius: 4px;
+    border-radius: 50px;
     font-size: 14px;
     }
     
@@ -215,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     color: #ffffff;
     padding: 12px;
     border: none;
-    border-radius: 4px;
+    border-radius: 50px;
     font-size: 16px;
     font-weight:600;
     cursor: pointer;
@@ -242,14 +247,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <h1><strong>Partner</strong> <br /> with <strong>Penniepoint</strong> <br /> as an <strong>Analyst</strong></h1>
     
     <!-- Register heading -->
-    <h2>REGISTER</h2>
+    <h2>Sign up</h2>
     
     <!-- Registration form -->
     <form id="registerForm" onsubmit="return validateForm()" method="POST" >
     <!-- Name -->
     <p id="error" style="color:red;"  ></p><?php if (isset($errors)) echo "<p style='color:red;'>$errors</p>"; ?>
     <div class="input-group">
-    <label for="name">Username</label>
     <div class="input-wrapper">
     <i class="fas fa-user"></i>
     <input 
@@ -261,7 +265,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
     </div>
     <div class="input-group">
-    <label for="name">Full Name</label>
     <div class="input-wrapper">
     <i class="fas fa-user-plus"></i>
     <input 
@@ -275,7 +278,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <!-- Email -->
     <div class="input-group">
-    <label for="email">Email</label>
     <div class="input-wrapper">
     <i class="fas fa-envelope"></i>
     <input 
@@ -288,7 +290,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
     
     <div class="input-group">
-    <label for="phone">Phone</label>
     <div class="input-wrapper">
     <i class="fas fa-phone"></i>
     <input 
@@ -301,15 +302,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
     <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
     <div class="input-group">
-    <label for="referral">Referral Partner Code</label>
     <div class="input-wrapper">
     <i class="fas fa-users"></i>
     <input 
     type="text" 
     id="referral" 
     name="referral" 
-    value="<?= $referral ?>" 
-    placeholder="Enter referral code" 
+    value="<?= $partnercode ?>" 
+    placeholder="Enter Partner code" 
     required="required" 
     pattern="[a-zA-Z]{2}\d{5}" 
     title="Format: 2 letters followed by 5 digits (e.g. ab12345)"
@@ -319,7 +319,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <!-- Password -->
     <div class="input-group">
-    <label for="password">Password</label>
     <div class="input-wrapper">
     <i class="fas fa-lock"></i>
     <input 
@@ -333,7 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <!-- Confirm Password -->
     <div class="input-group">
-    <label for="confirmPassword">Confirm Password</label>
     <div class="input-wrapper">
     <i class="fas fa-lock"></i>
     <input 

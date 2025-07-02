@@ -538,7 +538,12 @@ $referral_count = countReferrals($partner_code);
       <div class="partner-stats">
         <div class="partner-code">
           <span>Partnering Code</span>
+                  <?php if($user['status'] == 2): ?>
           <span class="code-value"><?= htmlspecialchars($partner_code) ?></span>
+                  <?php else: ?>
+                  <span class="code-value">Not verified</span>
+    <?php endif; ?>
+
         </div>
         <div class="total-partner">
           <span>Total Partner</span>
@@ -566,34 +571,36 @@ $referral_count = countReferrals($partner_code);
      </a>
     </div>
     <div class="box">
+      <i class="fas fa-tv-alt"></i>
+      <p>Office</p>
+    </div>
+    <div class="box">
     <a href="profile" >
       <i class="fas fa-users"></i>
       <p>Partner</p>
     </a>
     </div>
-    <div class="box">
+       <div class="box">
     <a href="stages" >
       <i class="fas fa-layer-group"></i>
       <p>Stages</p>
     </a>
     </div>
-    <div class="box">
-    <a href="faqs" >
-      <i class="fas fa-question-circle"></i>
-      <p>FAQs</p>
-    </a>
-    </div>
-    <div class="box">
-      <i class="fas fa-id-card"></i>
-      <p>ID-Card</p>
-    </div>
-    <div class="box">
+        <div class="box">
       <i class="fas fa-certificate"></i>
       <p>Certificate</p>
+    </div>
+    <div class="box">
+    <a href="idcard" >
+      <i class="fas fa-id-card"></i>
+      <p>ID-Card</p>
+     </a>
     </div>
   </section>
 
   <!-- Additional Info Section -->
+            <?php if($user['status'] == 2): ?>
+
   <section class="info-section">
     <div class="info-block">
     	<div class="user-c" >
@@ -618,6 +625,15 @@ $referral_count = countReferrals($partner_code);
       		<div class="medal gradient-gold"> <i class="fas fa-medal "></i> VIP1</div>
     </div>
   </section>
+<?php endif; ?>
+<section class="icon-boxs">
+    <div class="box">
+    <a href="faqs" >
+      <i class="fas fa-question-circle"></i>
+      <p>FAQs</p>
+    </a>
+    </div>
+  </section>
 </div>
 
 <!-- Add this HTML before closing body -->
@@ -637,7 +653,13 @@ $referral_count = countReferrals($partner_code);
 	const modalTitle = document.getElementById('modalTitle');
 	const modalBody = document.getElementById('modalBody');
 	// Update referral link with actual partner code
-	const referralLink = "https://penniepoint.com/register?referral=<?= $partner_code ?>";
+        <?php if($user['status'] == 2): ?>
+
+	const referralLink = "https://penniepoint.com/register?partnercode=<?= $partner_code ?>";
+        <?php else: ?>
+            	const referralLink = "Not Verified";
+        <?php endif; ?>
+
 	
 	// Message Icon Click
 	document.querySelector('.fa-envelope').addEventListener('click', () => {
@@ -674,23 +696,24 @@ $referral_count = countReferrals($partner_code);
 	</div>`
 	);
 	});
-	
-	// Certificate/ID-Card Click
-	document.querySelectorAll('.fa-certificate, .fa-id-card').forEach(item => {
-	item.closest('.box').addEventListener('click', () => {
-	showModal(
-	'<i class="fas fa-exclamation-triangle"></i> Account Verification',
-	`<div class="verification-alert">
-	<p>To access this feature, please verify your analyst account first.</p>
-	<div class="action-buttons">
-	<button class="pp-btn pp-btn-primary" onclick="window.location.href='/payment'">
-	<i class="fas fa-shield-check"></i> Verify Account
-	</button>
-	</div>
-	</div>`
-	);
-	});
-	});
+	<?php if($user['status'] != 2): ?>
+    	// Certificate/ID-Card Click
+    	document.querySelectorAll('.fa-certificate, .fa-id-card, .fa-tv-alt').forEach(item => {
+    	item.closest('.box').addEventListener('click', () => {
+    	showModal(
+    	'<i class="fas fa-exclamation-triangle"></i> Account Verification',
+    	`<div class="verification-alert">
+    	<p>To access this feature, please verify your analyst account first.</p>
+    	<div class="action-buttons">
+    	<button class="pp-btn pp-btn-primary" onclick="window.location.href='/payment'">
+    	<i class="fas fa-shield-check"></i> Verify Account
+    	</button>
+    	</div>
+    	</div>`
+    	);
+    	});
+    	});
+	<?php endif; ?>
 	
 	// Info Blocks Click
 	document.querySelectorAll('.info-block').forEach((block, index) => {

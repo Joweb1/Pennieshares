@@ -520,10 +520,17 @@ $referredUsers = getReferredUsers($user['partner_code']);
         </div>
         <div class="detail-item">
           <span class="detail-label">Partner Code:</span>
+            <?php if($user['status'] == 2): ?>
+
           <span class="detail-value code-value"><?= htmlspecialchars($user['partner_code']) ?></span>
+    <?php else: ?>
+              <span class="detail-value code-value">Not verified</span>
+
+    <?php endif; ?>
+
         </div>
         <div class="detail-item">
-          <span class="detail-label">Referral Username:</span>
+          <span class="detail-label">Your Joint Partner:</span>
           <span class="detail-value">@<?= htmlspecialchars($referrerUsername) ?></span>
         </div>
         <div class="detail-item">
@@ -552,7 +559,7 @@ $referredUsers = getReferredUsers($user['partner_code']);
     <!-- Add this section after the info-section -->
     <section class="referred-partners">
     <div class="section-header">
-    <h3><i class="fas fa-users"></i> Referred Partners</h3>
+    <h3><i class="fas fa-users"></i> Joint Partners</h3>
     <span class="count-badge"><?= count($referredUsers) ?> members</span>
     </div>
     
@@ -574,7 +581,7 @@ $referredUsers = getReferredUsers($user['partner_code']);
     <?php else: ?>
     <div class="empty-state">
     <i class="fas fa-user-plus"></i>
-    <p>No partners referred yet<br>
+    <p>No Joint partners yet<br>
     <button class="copy-code-btn" onclick="copyPartnerCode()">
     <i class="fas fa-copy"></i> Copy Your Partner Code
     </button>
@@ -592,7 +599,12 @@ function confirmDelete() {
     }
 }
     function copyPartnerCode() {
+                <?php if($user['status'] == 2): ?>
     const code = '<?= $user['partner_code'] ?>';
+            <?php else: ?>
+                const code = "Not verified";
+            <?php endif; ?>
+
     navigator.clipboard.writeText(code);
     showModal(
     '<i class="fas fa-copy"></i> Code Copied',

@@ -41,18 +41,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   <title>Login Page</title>
   <!-- Font Awesome (CDN) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <!-- Link to your CSS -->
   <link rel="stylesheet" href="style.css" />
   <style type="text/css">
   /* Basic reset and font styling */
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
   * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family:"Roboto", sans-serif;
   }
   
   body {
-  font-family: Arial, sans-serif;
+  font-family: "Roboto", sans-serif;
   background-color: #ffffff;
   color: #000000;
   }
@@ -63,9 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   max-width: 90%;
   margin: 60px auto;
   text-align: center;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(215,215,255,0.2);
   padding: 30px 20px;
-  border-radius: 8px;
+  border-radius: 50px;
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
   }
   
@@ -90,14 +96,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   font-size: 28px;
   font-style:normal;
   color: #001970; /* Dark Blue color */
-  padding-top: 10px;
+  padding: 5px 0;
   }
   
   .login-container h2 {
-  font-size: 22px;
+  font-size: 25px;
+  letter-spacing:.1px;
   color: #001970;
   font-weight:600;
-  font-variant:small-caps;
   margin-bottom: 50px;
   }
   
@@ -143,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   width: 100%;
   padding: 10px 10px 10px 35px;
   border: 1px solid #001970;
-  border-radius: 4px;
+  border-radius: 50px;
   font-size: 14px;
   }
   
@@ -170,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   color: #ffffff;
   padding: 12px;
   border: none;
-  border-radius: 4px;
+  border-radius: 50px;
   font-size: 16px;
   cursor: pointer;
   text-transform: uppercase;
@@ -198,8 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
 
     <!-- Headings -->
-    <h1>Welcome Back!!</h1>
-    <h2>PARTNER</h2>
+    <h1>Welcome</h1>
+    <h2>Sign in</h2>
 
     <!-- Login Form -->
     <form id="loginForm" method="POST" onsubmit="return validateForm()">
@@ -211,7 +217,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </p>
     <p class="error" id="error" ></p>
       <div class="input-group">
-        <label for="email">Email</label>
         <div class="input-wrapper">
           <i class="fas fa-envelope"></i>
           <input type="email" id="email" name="email" placeholder="e.g example@gmail.com" />
@@ -219,7 +224,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       </div>
 
       <div class="input-group">
-        <label for="password">Password</label>
         <div class="input-wrapper">
           <i class="fas fa-lock"></i>
           <input
