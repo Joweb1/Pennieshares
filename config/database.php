@@ -50,7 +50,8 @@ try {
         payout_cap DECIMAL(10, 2) NOT NULL,
         duration_months INTEGER NOT NULL,
         reservation_fund_contribution DECIMAL(10, 2) NOT NULL,
-        image_link TEXT
+        image_link TEXT,
+        category TEXT
     );");
 
     // Add image_link column to asset_types if it doesn't exist
@@ -100,6 +101,17 @@ try {
         total_shared_pot DECIMAL(10, 2) DEFAULT 0.00,
         last_updated TEXT
     );");
+
+    // --- Create Wallet Transactions Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS wallet_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        type TEXT NOT NULL, -- e.g., 'credit', 'debit', 'transfer_in', 'transfer_out', 'asset_profit'
+        amount DECIMAL(10, 2) NOT NULL,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )");
 
     // Add total_generational_pot and total_shared_pot columns to company_funds if they don't exist
     $company_funds_columns = $pdo->query("PRAGMA table_info(company_funds)")->fetchAll(PDO::FETCH_COLUMN, 1);

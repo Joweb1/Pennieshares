@@ -10,7 +10,7 @@ if ($request_uri == '' || $request_uri == 'index.php') {
 }
 
 // Define available pages
-$pages = ['home', 'login', 'register', 'dashboard', 'profile', 'forgot_password', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','stages','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer'];
+$pages = ['home', 'login', 'register', 'dashboard', 'profile', 'forgot_password', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','stages','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions'];
 
 // Retrieve query parameters safely
 $partnercode = $_GET['partnercode'] ?? NULL; // Example: ?token=abc123

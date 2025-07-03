@@ -3,9 +3,13 @@
 require_once __DIR__ . '/config/database.php';
 
 try {
-    // Drop existing tables
-    $pdo->exec("DROP TABLE IF EXISTS users");
+    // Drop existing tables in correct order to avoid foreign key constraints
+    $pdo->exec("DROP TABLE IF EXISTS payouts");
+    $pdo->exec("DROP TABLE IF EXISTS assets");
+    $pdo->exec("DROP TABLE IF EXISTS asset_types");
     $pdo->exec("DROP TABLE IF EXISTS payment_proofs");
+    $pdo->exec("DROP TABLE IF EXISTS users");
+    $pdo->exec("DROP TABLE IF EXISTS company_funds");
 
     // Create users table with latest schema
     $pdo->exec("
@@ -22,7 +26,9 @@ try {
             reset_token TEXT,
             reset_expires DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            status INTEGER DEFAULT 1 NOT NULL
+            status INTEGER DEFAULT 1 NOT NULL,
+            wallet_balance DECIMAL(10, 2) DEFAULT 0.00,
+            is_admin INTEGER DEFAULT 0
         )
     ");
 
@@ -37,39 +43,6 @@ try {
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ");
-
-    // Add sample user
-    $stmt = $pdo->prepare("
-        INSERT INTO users (fullname, email, username, phone, referral, password, partner_code, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    
-    $sampleUsers = [
-        [
-            'Jonadab Uroh',
-            'supervisor@penniepoint.com',
-            'jonadab00',
-            '09135580911',
-            'so12345',
-            password_hash('password123', PASSWORD_BCRYPT),
-            'jo12345',
-            2
-        ],
-        [
-            'Admin User',
-            'admin@penniepoint.com', // Add your admin email here
-            'admin_user',
-            '0987654321',
-            'jo12345',
-            password_hash('admin123', PASSWORD_BCRYPT),
-            'ad54321',
-            1
-        ]
-    ];
-
-    foreach ($sampleUsers as $user) {
-        $stmt->execute($user);
-    }
 
     echo "Database refreshed successfully!";
     

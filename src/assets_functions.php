@@ -86,186 +86,166 @@ function getAncestorsForPayout($pdo, $childAssetId, $maxDepth = MAX_GENERATIONS_
 
 
 // --- buyAsset Function (Updated with expiration check and logging) ---
-function buyAsset($userId, $assetTypeId, $numAssetsToBuy = 1) {
+function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
     global $pdo;
     $overallResults = ['purchases' => [], 'summary' => [], 'expired_check_count' => 0];
     $now = date('Y-m-d H:i:s');
 
-    $pdo->beginTransaction();
-    try {
-        // Perform expiration check before any purchases
-        $expiredCount = checkAndMarkExpiredAssets($pdo);
-        $overallResults['expired_check_count'] = $expiredCount;
+    // Perform expiration check before any purchases
+    $expiredCount = checkAndMarkExpiredAssets($pdo);
+    $overallResults['expired_check_count'] = $expiredCount;
 
-        $assetTypeStmt = $pdo->prepare("SELECT * FROM asset_types WHERE id = ?");
-        $assetTypeStmt->execute([$assetTypeId]);
-        $assetType = $assetTypeStmt->fetch(PDO::FETCH_ASSOC);
+    $assetTypeStmt = $pdo->prepare("SELECT * FROM asset_types WHERE id = ?");
+    $assetTypeStmt->execute([$assetTypeId]);
+    $assetType = $assetTypeStmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$assetType) {
-            throw new Exception("Invalid Asset Type ID {$assetTypeId}.");
+    if (!$assetType) {
+        throw new Exception("Invalid Asset Type ID {$assetTypeId}.");
+    }
+
+    $totalCost = $numAssetsToBuy * $assetType['price'];
+
+    // Check user wallet balance (already debited by calling function)
+
+    for ($count = 0; $count < $numAssetsToBuy; $count++) {
+        $currentPurchaseResult = [
+            'asset_id' => null, 'message' => '', 'parent_update' => '',
+            'company_profit_log' => '', 'reservation_direct_log' => '',
+            'generational_payouts_log' => [], 'shared_payouts_log' => []
+        ];
+
+        $expires_at = null;
+        if ($assetType['duration_months'] > 0) {
+            $dt = new DateTime($now);
+            $dt->add(new DateInterval("P{$assetType['duration_months']}M"));
+            $expires_at = $dt->format('Y-m-d H:i:s');
         }
 
-        $totalCost = $numAssetsToBuy * $assetType['price'];
-
-        // Check user wallet balance
-        $userStmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
-        $userStmt->execute([$userId]);
-        $userWallet = $userStmt->fetchColumn();
-
-        if ($userWallet < $totalCost) {
-            throw new Exception("Insufficient funds. Wallet balance is ₦{$userWallet}, but ₦{$totalCost} is required.");
+        $eligibleParentInfo = findEligibleParent($pdo);
+        $parentId = null;
+        $newAssetGeneration = 1;
+        if ($eligibleParentInfo) {
+            $parentId = $eligibleParentInfo['id'];
+            $newAssetGeneration = $eligibleParentInfo['generation'] + 1;
         }
+        $stmt = $pdo->prepare("INSERT INTO assets (user_id, asset_type_id, parent_id, generation, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$userId, $assetTypeId, $parentId, $newAssetGeneration, $now, $expires_at]);
+        $newAssetId = $pdo->lastInsertId();
+        $currentPurchaseResult['asset_id'] = $newAssetId;
+        $currentPurchaseResult['message'] = "Asset #{$newAssetId} ({$assetType['name']}) created for user #{$userId}. Expires: ".($expires_at ?? 'Never').".";
 
-        // Deduct from wallet
-        $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?")->execute([$totalCost, $userId]);
+        if ($parentId) {
+            $pdo->prepare("UPDATE assets SET children_count = children_count + 1 WHERE id = ?")->execute([$parentId]);
+            $currentPurchaseResult['parent_update'] = "Parent Asset #{$parentId} children_count incremented.";
+        }
+        
+        // Payout logic
+        $assetPrice = $assetType['price'];
+        $remainingAmount = $assetPrice;
 
-        for ($count = 0; $count < $numAssetsToBuy; $count++) {
-            $currentPurchaseResult = [
-                'asset_id' => null, 'message' => '', 'parent_update' => '',
-                'company_profit_log' => '', 'reservation_direct_log' => '',
-                'generational_payouts_log' => [], 'shared_payouts_log' => []
-            ];
+        // 1. Company Profit Allocation
+        $companyProfitAmount = $assetPrice * (COMPANY_PROFIT_ALLOCATION / 100);
+        $pdo->prepare("UPDATE company_funds SET total_company_profit = total_company_profit + ? WHERE id = 1")->execute([$companyProfitAmount]);
+        $remainingAmount -= $companyProfitAmount;
+        $currentPurchaseResult['company_profit_log'] = "Company profit increased by ₦" . number_format($companyProfitAmount, 2) . ".";
 
-            $expires_at = null;
-            if ($assetType['duration_months'] > 0) {
-                $dt = new DateTime($now);
-                $dt->add(new DateInterval("P{$assetType['duration_months']}M"));
-                $expires_at = $dt->format('Y-m-d H:i:s');
-            }
+        // 2. Generational Pot Allocation
+        $generationalPotAmount = $assetPrice * (GENERATIONAL_POT_ALLOCATION / 100);
+        $pdo->prepare("UPDATE company_funds SET total_generational_pot = total_generational_pot + ? WHERE id = 1")->execute([$generationalPotAmount]);
+        $remainingAmount -= $generationalPotAmount;
+        $currentPurchaseResult['generational_pot_log'] = "Generational pot increased by ₦" . number_format($generationalPotAmount, 2) . ".";
 
-            $eligibleParentInfo = findEligibleParent($pdo);
-            $parentId = null;
-            $newAssetGeneration = 1;
-            if ($eligibleParentInfo) {
-                $parentId = $eligibleParentInfo['id'];
-                $newAssetGeneration = $eligibleParentInfo['generation'] + 1;
-            }
-            $stmt = $pdo->prepare("INSERT INTO assets (user_id, asset_type_id, parent_id, generation, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$userId, $assetTypeId, $parentId, $newAssetGeneration, $now, $expires_at]);
-            $newAssetId = $pdo->lastInsertId();
-            $currentPurchaseResult['asset_id'] = $newAssetId;
-            $currentPurchaseResult['message'] = "Asset #{$newAssetId} ({$assetType['name']}) created for user #{$userId}. Expires: ".($expires_at ?? 'Never').".";
+        // 3. Shared Pot Allocation
+        $sharedPotAmount = $assetPrice * (SHARED_POT_ALLOCATION / 100);
+        $pdo->prepare("UPDATE company_funds SET total_shared_pot = total_shared_pot + ? WHERE id = 1")->execute([$sharedPotAmount]);
+        $remainingAmount -= $sharedPotAmount;
+        $currentPurchaseResult['shared_pot_log'] = "Shared pot increased by ₦" . number_format($sharedPotAmount, 2) . ".";
 
-            if ($parentId) {
-                $pdo->prepare("UPDATE assets SET children_count = children_count + 1 WHERE id = ?")->execute([$parentId]);
-                $currentPurchaseResult['parent_update'] = "Parent Asset #{$parentId} children_count incremented.";
-            }
-            
-            // Payout logic
-            $assetPrice = $assetType['price'];
-            $remainingAmount = $assetPrice;
+        // 4. Reservation Fund Allocation (remaining amount after fixed allocations)
+        $reservationFundAmount = $remainingAmount; // This should be the remainder after fixed allocations
+        $pdo->prepare("UPDATE company_funds SET total_reservation_fund = total_reservation_fund + ? WHERE id = 1")->execute([$reservationFundAmount]);
+        $currentPurchaseResult['reservation_fund_log'] = "Reservation fund increased by ₦" . number_format($reservationFundAmount, 2) . ".";
 
-            // 1. Company Profit Allocation
-            $companyProfitAmount = $assetPrice * (COMPANY_PROFIT_ALLOCATION / 100);
-            $pdo->prepare("UPDATE company_funds SET total_company_profit = total_company_profit + ? WHERE id = 1")->execute([$companyProfitAmount]);
-            $remainingAmount -= $companyProfitAmount;
-            $currentPurchaseResult['company_profit_log'] = "Company profit increased by ₦" . number_format($companyProfitAmount, 2) . ".";
+        // Generational Payouts
+        $ancestors = getAncestorsForPayout($pdo, $newAssetId);
+        foreach ($ancestors as $depth => $ancestor) {
+            if ($depth >= MAX_GENERATIONS_PAYOUT_DEPTH) break;
 
-            // 2. Generational Pot Allocation
-            $generationalPotAmount = $assetPrice * (GENERATIONAL_POT_ALLOCATION / 100);
-            $pdo->prepare("UPDATE company_funds SET total_generational_pot = total_generational_pot + ? WHERE id = 1")->execute([$generationalPotAmount]);
-            $remainingAmount -= $generationalPotAmount;
-            $currentPurchaseResult['generational_pot_log'] = "Generational pot increased by ₦" . number_format($generationalPotAmount, 2) . ".";
+            // Check if ancestor is active and not completed/expired
+            if ($ancestor['is_completed'] == 0 && $ancestor['is_currently_expired'] == 0) {
+                $payoutAmount = PAYOUT_PER_GENERATION_EVENT_FROM_POT;
 
-            // 3. Shared Pot Allocation
-            $sharedPotAmount = $assetPrice * (SHARED_POT_ALLOCATION / 100);
-            $pdo->prepare("UPDATE company_funds SET total_shared_pot = total_shared_pot + ? WHERE id = 1")->execute([$sharedPotAmount]);
-            $remainingAmount -= $sharedPotAmount;
-            $currentPurchaseResult['shared_pot_log'] = "Shared pot increased by ₦" . number_format($sharedPotAmount, 2) . ".";
-
-            // 4. Reservation Fund Allocation (remaining amount after fixed allocations)
-            $reservationFundAmount = $remainingAmount; // This should be the remainder after fixed allocations
-            $pdo->prepare("UPDATE company_funds SET total_reservation_fund = total_reservation_fund + ? WHERE id = 1")->execute([$reservationFundAmount]);
-            $currentPurchaseResult['reservation_fund_log'] = "Reservation fund increased by ₦" . number_format($reservationFundAmount, 2) . ".";
-
-            // Generational Payouts
-            $ancestors = getAncestorsForPayout($pdo, $newAssetId);
-            foreach ($ancestors as $depth => $ancestor) {
-                if ($depth >= MAX_GENERATIONS_PAYOUT_DEPTH) break;
-
-                // Check if ancestor is active and not completed/expired
-                if ($ancestor['is_completed'] == 0 && $ancestor['is_currently_expired'] == 0) {
-                    $payoutAmount = PAYOUT_PER_GENERATION_EVENT_FROM_POT;
-
-                    // Check payout cap
-                    $potentialTotalEarned = $ancestor['total_generational_received'] + $payoutAmount;
-                    if ($ancestor['payout_cap'] > 0 && $potentialTotalEarned > $ancestor['payout_cap']) {
-                        $payoutAmount = $ancestor['payout_cap'] - $ancestor['total_generational_received'];
-                        if ($payoutAmount < 0) $payoutAmount = 0; // Ensure payout is not negative
-                    }
-
-                    if ($payoutAmount > 0) {
-                        // Deduct from generational pot
-                        $pdo->prepare("UPDATE company_funds SET total_generational_pot = total_generational_pot - ? WHERE id = 1")->execute([$payoutAmount]);
-                        // Credit ancestor asset
-                        $pdo->prepare("UPDATE assets SET total_generational_received = total_generational_received + ? WHERE id = ?")->execute([$payoutAmount, $ancestor['id']]);
-                        // Credit user wallet
-                        $ancestorUserIdStmt = $pdo->prepare("SELECT user_id FROM assets WHERE id = ?");
-                        $ancestorUserIdStmt->execute([$ancestor['id']]);
-                        $ancestorUserId = $ancestorUserIdStmt->fetchColumn();
-                        if ($ancestorUserId) {
-                            $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")->execute([$payoutAmount, $ancestorUserId]);
-                        }
-
-                        // Log payout
-                        $pdo->prepare("INSERT INTO payouts (receiving_asset_id, triggering_asset_id, amount, payout_type, created_at) VALUES (?, ?, ?, ?, ?)")
-                            ->execute([$ancestor['id'], $newAssetId, $payoutAmount, 'generational', $now]);
-                        $currentPurchaseResult['generational_payouts_log'][] = "Asset #{$ancestor['id']} received ₦" . number_format($payoutAmount, 2) . " (Gen. " . ($depth + 1) . ").";
-
-                        // Mark asset as completed if cap reached
-                        $updatedTotalGenerationalReceivedStmt = $pdo->prepare("SELECT total_generational_received FROM assets WHERE id = ?");
-                        $updatedTotalGenerationalReceivedStmt->execute([$ancestor['id']]);
-                        $updatedTotalGenerationalReceived = $updatedTotalGenerationalReceivedStmt->fetchColumn();
-
-                        if ($ancestor['payout_cap'] > 0 && $updatedTotalGenerationalReceived >= $ancestor['payout_cap']) {
-                            $pdo->prepare("UPDATE assets SET is_completed = 1 WHERE id = ?")->execute([$ancestor['id']]);
-                            $currentPurchaseResult['generational_payouts_log'][] = "Asset #{$ancestor['id']} marked completed (cap reached).";
-                        }
-                    }
+                // Check payout cap
+                $potentialTotalEarned = $ancestor['total_generational_received'] + $payoutAmount;
+                if ($ancestor['payout_cap'] > 0 && $potentialTotalEarned > $ancestor['payout_cap']) {
+                    $payoutAmount = $ancestor['payout_cap'] - $ancestor['total_generational_received'];
+                    if ($payoutAmount < 0) $payoutAmount = 0; // Ensure payout is not negative
                 }
-            }
 
-            // Shared Payouts (Example - assuming a simple shared payout to the direct parent)
-            if ($parentId) {
-                $sharedPayoutAmount = 0; // Define your shared payout logic here
-                // For example, a fixed amount or a percentage of the remaining amount
-                // For now, let's assume a simple fixed amount from the shared pot
-                $sharedPayoutAmount = 5.00; // Example fixed shared payout
-
-                // Check if shared pot has enough funds
-                $companyFunds = getCompanyFunds($pdo);
-                if ($companyFunds['total_shared_pot'] >= $sharedPayoutAmount) {
-                    // Deduct from shared pot
-                    $pdo->prepare("UPDATE company_funds SET total_shared_pot = total_shared_pot - ? WHERE id = 1")->execute([$sharedPayoutAmount]);
-                    // Credit parent asset (or relevant asset for shared payout)
-                    $pdo->prepare("UPDATE assets SET total_shared_received = total_shared_received + ? WHERE id = ?")->execute([$sharedPayoutAmount, $parentId]);
+                if ($payoutAmount > 0) {
+                    // Deduct from generational pot
+                    $pdo->prepare("UPDATE company_funds SET total_generational_pot = total_generational_pot - ? WHERE id = 1")->execute([$payoutAmount]);
+                    // Credit ancestor asset
+                    $pdo->prepare("UPDATE assets SET total_generational_received = total_generational_received + ? WHERE id = ?")->execute([$payoutAmount, $ancestor['id']]);
                     // Credit user wallet
-                    $parentUserIdStmt = $pdo->prepare("SELECT user_id FROM assets WHERE id = ?");
-                    $parentUserIdStmt->execute([$parentId]);
-                    $parentUserId = $parentUserIdStmt->fetchColumn();
-                    if ($parentUserId) {
-                        $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")->execute([$sharedPayoutAmount, $parentUserId]);
-                    }
+                    $ancestorUserIdStmt = $pdo->prepare("SELECT user_id FROM assets WHERE id = ?");
+                    $ancestorUserIdStmt->execute([$ancestor['id']]);
+                    $ancestorUserId = $ancestorUserIdStmt->fetchColumn();
+                    if ($ancestorUserId) {
+                            $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")->execute([$payoutAmount, $ancestorUserId]);
+                            // Log generational payout as asset_profit
+                            $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+                            $assetName = getAssetBranding($ancestor['asset_type_id'])['name'];
+                            $logStmt->execute([$ancestorUserId, 'asset_profit', $payoutAmount, 'Profit from ' . $assetName]);
+                        }
 
                     // Log payout
                     $pdo->prepare("INSERT INTO payouts (receiving_asset_id, triggering_asset_id, amount, payout_type, created_at) VALUES (?, ?, ?, ?, ?)")
-                        ->execute([$parentId, $newAssetId, $sharedPayoutAmount, 'shared', $now]);
-                    $currentPurchaseResult['shared_payouts_log'][] = "Asset #{$parentId} received ₦" . number_format($sharedPayoutAmount, 2) . " (Shared).";
-                } else {
-                    $currentPurchaseResult['shared_payouts_log'][] = "Not enough funds in shared pot for payout to Asset #{$parentId}.";
+                        ->execute([$ancestor['id'], $newAssetId, $payoutAmount, 'generational', $now]);
+                    $currentPurchaseResult['generational_payouts_log'][] = "Asset #{$ancestor['id']} received ₦" . number_format($payoutAmount, 2) . " (Gen. " . ($depth + 1) . ").";
+
+                    // Mark asset as completed if cap reached
+                    $updatedTotalGenerationalReceivedStmt = $pdo->prepare("SELECT total_generational_received FROM assets WHERE id = ?");
+                    $updatedTotalGenerationalReceivedStmt->execute([$ancestor['id']]);
+                    $updatedTotalGenerationalReceived = $updatedTotalGenerationalReceivedStmt->fetchColumn();
+
+                    if ($ancestor['payout_cap'] > 0 && $updatedTotalGenerationalReceived >= $ancestor['payout_cap']) {
+                        $pdo->prepare("UPDATE assets SET is_completed = 1 WHERE id = ?")->execute([$ancestor['id']]);
+                        $currentPurchaseResult['generational_payouts_log'][] = "Asset #{$ancestor['id']} marked completed (cap reached).";
+                    }
                 }
             }
-
-            $overallResults['purchases'][] = $currentPurchaseResult;
         }
 
-        $pdo->commit();
-        $overallResults['summary'][] = "Successfully purchased {$numAssetsToBuy} of '{$assetType['name']}'. Total Cost: ₦" . number_format($totalCost, 2) . ".";
+        // Shared Payouts: Distribute SHARED_POT_ALLOCATION among all active assets
+        $activeAssetsStmt = $pdo->prepare("SELECT a.id, a.user_id, at.name as asset_type_name FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.is_completed = 0 AND a.is_manually_expired = 0");
+        $activeAssetsStmt->execute();
+        $activeAssets = $activeAssetsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $overallResults['summary'][] = "Error: " . $e->getMessage();
+        $numActiveAssets = count($activeAssets);
+        if ($numActiveAssets > 0) {
+            $fractionalSharedPayout = SHARED_POT_ALLOCATION / $numActiveAssets;
+            foreach ($activeAssets as $activeAsset) {
+                // Credit asset's total_shared_received
+                $pdo->prepare("UPDATE assets SET total_shared_received = total_shared_received + ? WHERE id = ?")->execute([$fractionalSharedPayout, $activeAsset['id']]);
+                
+                // Credit user wallet
+                $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")->execute([$fractionalSharedPayout, $activeAsset['user_id']]);
+
+                // Log shared payout as asset_profit
+                $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+                $logStmt->execute([$activeAsset['user_id'], 'asset_profit', $fractionalSharedPayout, 'Profit from ' . $activeAsset['asset_type_name']]);
+
+                $currentPurchaseResult['shared_payouts_log'][] = "Asset #{$activeAsset['id']} received ₦" . number_format($fractionalSharedPayout, 2) . " (Shared).";
+            }
+        } else {
+            $currentPurchaseResult['shared_payouts_log'][] = "No active assets to distribute shared payout.";
+        }
+
+        $overallResults['purchases'][] = $currentPurchaseResult;
     }
+
+    $overallResults['summary'][] = "Successfully purchased {$numAssetsToBuy} of '{$assetType['name']}'. Total Cost: ₦" . number_format($totalCost, 2) . ".";
     
     return $overallResults;
 }
@@ -340,22 +320,22 @@ function getAssetStatusDistribution($pdo) {
 
 function getAssetBranding($assetTypeId) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT name, image_link FROM asset_types WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT name, image_link, category FROM asset_types WHERE id = ?");
     $stmt->execute([$assetTypeId]);
     $assetData = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($assetData) {
-        return ['name' => $assetData['name'], 'image' => $assetData['image_link'] ?? ''];
+        return ['name' => $assetData['name'], 'image' => $assetData['image_link'] ?? '', 'category' => $assetData['category'] ?? 'General'];
     } else {
-        return ['name' => 'Unknown Asset', 'image' => ''];
+        return ['name' => 'Unknown Asset', 'image' => '', 'category' => '' ];
     }
 }
 
-function addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink = null) {
+function addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink = null, $category = null) {
     try {
         $reservationContribution = $price - FIXED_ALLOCATIONS_TOTAL;
-        $stmt = $pdo->prepare("INSERT INTO asset_types (name, price, payout_cap, duration_months, reservation_fund_contribution, image_link) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $price, $payoutCap, $durationMonths, $reservationContribution, $imageLink]);
+        $stmt = $pdo->prepare("INSERT INTO asset_types (name, price, payout_cap, duration_months, reservation_fund_contribution, image_link, category) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $price, $payoutCap, $durationMonths, $reservationContribution, $imageLink, $category]);
         return true;
     } catch (PDOException $e) {
         error_log("Error adding asset type: " . $e->getMessage());

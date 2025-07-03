@@ -3,6 +3,7 @@ require_once __DIR__ . '/../src/functions.php';
 check_auth();
 
 $actionMessage = '';
+$messageType = 'info'; // 'info', 'success', 'error'
 $currentUser = $_SESSION['user'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'user_transfer_wallet') {
@@ -12,22 +13,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if (empty($receiverUsername) || $amount === false || $amount <= 0) {
         $actionMessage = "Error: Invalid recipient username or amount.";
+        $messageType = 'error';
     } else {
         // Get receiver user details
         $receiverUser = getUserByIdOrName($pdo, $receiverUsername);
 
         if (!$receiverUser) {
             $actionMessage = "Error: Recipient user '{$receiverUsername}' not found.";
+            $messageType = 'error';
         } elseif ($receiverUser['is_admin'] != 1) {
             $actionMessage = "Error: You can only transfer funds to an admin user.";
+            $messageType = 'error';
         } else {
             $transferResult = transferWalletBalance($pdo, $senderId, $receiverUser['id'], $amount);
             if ($transferResult['success']) {
                 $actionMessage = "Successfully transferred ₦{$amount} to admin user {$receiverUsername}.";
+                $messageType = 'success';
                 // Update session balance after successful transfer
                 $_SESSION['user']['wallet_balance'] = getUserByIdOrName($pdo, $senderId)['wallet_balance'];
             } else {
                 $actionMessage = "Error: " . $transferResult['message'];
+                $messageType = 'error';
             }
         }
     }
@@ -37,48 +43,146 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $currentUser = getUserByIdOrName($pdo, $currentUser['id']);
 $_SESSION['user'] = $currentUser;
 
+require_once __DIR__ . '/../assets/template/intro-template.php';
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Transfer Funds</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; background-color: #f4f7f6; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
-        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 30px; }
-        .message { padding: 15px; margin-bottom:20px; border-radius: 5px; border-left: 5px solid; }
-        .message-success { background-color: #e8f8f5; color: #1abc9c; border-left-color: #1abc9c;}
-        .message-error { background-color: #fdedec; color: #e74c3c; border-left-color: #e74c3c;}
-        .form-section { background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 30px; box-shadow: 0 2px 3px rgba(0,0,0,0.05); }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="text"], input[type="number"] { width: calc(100% - 22px); padding: 10px; margin-bottom:15px; border: 1px solid #ccc; border-radius:4px; box-sizing: border-box; }
-        button { padding: 10px 18px; background-color: #3498db; color: white; border:none; border-radius:4px; cursor:pointer; font-size: 1em; transition: background-color 0.3s ease; }
-        button:hover { background-color: #2980b9;}
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>Transfer Funds</h1>
 
-    <?php if ($actionMessage): ?>
-        <div class="message <?php echo strpos(strtolower($actionMessage), 'error') !== false ? 'message-error' : 'message-success'; ?>">
-            <?php echo htmlspecialchars($actionMessage); ?>
+<style>
+    body {
+        font-family: var(--font-primary);
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+    }
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    .main-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+    .form-section {
+        background-color: var(--bg-secondary);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+    }
+    .form-input {
+        width: 100%;
+        height: 48px;
+        padding: 0 1rem;
+        border-radius: 0.75rem;
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 2px rgba(var(--accent-color), 0.2);
+    }
+    .wallet-balance-display {
+        text-align: right;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+    .wallet-balance-display strong {
+        font-weight: 700;
+        color: var(--accent-color);
+        font-size: 1.1rem;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 48px;
+        border-radius: 0.75rem;
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 0 1.5rem;
+        cursor: pointer;
+        border: none;
+        text-decoration: none;
+        transition: background-color 0.2s, opacity 0.2s;
+    }
+    .btn-primary {
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+    }
+    .btn-primary:hover { background-color: #0a6cce; }
+    .btn-full-width { width: 100%; }
+    .message-box {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid transparent;
+        font-size: 0.95rem;
+    }
+    .message-box.info {
+        background-color: #e0f2fe;
+        border-color: #0c7ff2;
+        color: #0c7ff2;
+    }
+    .message-box.success {
+        background-color: #dcfce7;
+        border-color: #22c55e;
+        color: #22c55e;
+    }
+    .message-box.error {
+        background-color: #fee2e2;
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+</style>
+
+<main>
+    <div class="container">
+        <h1 class="main-title">Transfer Funds</h1>
+
+        <?php if ($actionMessage): ?>
+            <div class="message-box <?php echo htmlspecialchars($messageType); ?>">
+                <?php echo htmlspecialchars($actionMessage); ?>
+            </div>
+        <?php endif; ?>
+
+        <div class="form-section">
+            <div class="wallet-balance-display">
+                Your Wallet Balance: <strong>₦<?php echo number_format($currentUser['wallet_balance'], 2); ?></strong>
+            </div>
+
+            <form method="post">
+                <input type="hidden" name="action" value="user_transfer_wallet">
+                <div class="form-group">
+                    <label for="receiver_username">Admin Username:</label>
+                    <input type="text" name="receiver_username" id="receiver_username" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="transfer_amount">Amount (₦):</label>
+                    <input type="number" step="0.01" name="transfer_amount" id="transfer_amount" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full-width">Transfer Funds</button>
+            </form>
         </div>
-    <?php endif; ?>
-
-    <h2>Your Wallet Balance: ₦<?php echo number_format($currentUser['wallet_balance'], 2); ?></h2>
-
-    <div class="form-section">
-        <h2>Transfer to Admin</h2>
-        <form method="post">
-            <input type="hidden" name="action" value="user_transfer_wallet">
-            <div><label for="receiver_username">Admin Username:</label><input type="text" name="receiver_username" id="receiver_username" required></div>
-            <div><label for="transfer_amount">Amount (₦):</label><input type="number" step="0.01" name="transfer_amount" id="transfer_amount" required></div>
-            <button type="submit">Transfer Funds</button>
-        </form>
     </div>
+</main>
 
-    <p><a href="dashboard.php">Back to Dashboard</a></p>
-</div>
-</body>
-</html>
+<?php
+require_once __DIR__ . '/../assets/template/end-template.php';
+?>

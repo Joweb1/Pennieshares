@@ -143,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $price = filter_input(INPUT_POST, 'new_asset_price', FILTER_VALIDATE_FLOAT);
     $payoutCap = filter_input(INPUT_POST, 'new_asset_payout_cap', FILTER_VALIDATE_FLOAT);
     $durationMonths = filter_input(INPUT_POST, 'new_asset_duration_months', FILTER_VALIDATE_INT);
+    $category = trim($_POST['new_asset_category']);
     $imageLink = null;
 
     // Handle image upload
@@ -174,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (empty($name) || $price === false || $payoutCap === false || $durationMonths === false) {
         $actionMessage = "Error: Invalid input for new asset type.";
     } else if ($actionMessage === '') { // Only proceed if no file upload error occurred
-        if (addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink)) {
+        if (addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink, $category)) {
             $actionMessage = "Asset type '{$name}' added successfully.";
         } else {
             $actionMessage = "Error: Failed to add asset type.";
@@ -400,6 +401,7 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
             <div><label for="new_asset_payout_cap">Payout Cap (₦):</label><input type="number" step="0.01" name="new_asset_payout_cap" id="new_asset_payout_cap" required></div>
             <div><label for="new_asset_duration_months">Duration (Months, 0 for unlimited):</label><input type="number" name="new_asset_duration_months" id="new_asset_duration_months" value="0" min="0" required></div>
             <div><label for="new_asset_image">Asset Image (Optional):</label><input type="file" name="new_asset_image" id="new_asset_image" accept="image/*"></div>
+            <div><label for="new_asset_category">Category:</label><input type="text" name="new_asset_category" id="new_asset_category" value="General" required></div>
             <button type="submit">Add Asset Type</button>
         </form>
     </div>

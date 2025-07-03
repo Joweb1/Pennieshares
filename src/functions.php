@@ -186,7 +186,7 @@ function deleteUserAccount($pdo, $userId) {
 	}
 	}
 
-function creditUserWallet($userId, $amount) {
+function creditUserWallet($userId, $amount, $description = 'Admin Credit') {
     global $pdo;
     if (!is_numeric($amount) || $amount <= 0) {
         return false;
@@ -194,8 +194,15 @@ function creditUserWallet($userId, $amount) {
     try {
         $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :id");
         $result = $stmt->execute([':amount' => $amount, ':id' => $userId]);
+        
+        if ($result) {
+            // Log the transaction
+            $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+            $logStmt->execute([$userId, 'credit', $amount, $description]);
+        }
         return $result;
     } catch (PDOException $e) {
+        error_log("Error crediting user wallet: " . $e->getMessage());
         return false;
     }
 }
@@ -221,31 +228,33 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
     }
 
     try {
-        $pdo->beginTransaction();
-
         // Check sender's balance
         $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
         $stmt->execute([$senderId]);
         $senderBalance = $stmt->fetchColumn();
 
         if ($senderBalance < $amount) {
-            $pdo->rollBack();
             return ['success' => false, 'message' => "Insufficient funds."];
         }
 
         // Deduct from sender
         $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?");
         $stmt->execute([$amount, $senderId]);
+        
+        // Log sender's transaction
+        $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+        $logStmt->execute([$senderId, 'payout', -$amount, 'Payout to user ID ' . $receiverId]);
 
         // Add to receiver
         $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?");
         $stmt->execute([$amount, $receiverId]);
 
-        $pdo->commit();
+        // Log receiver's transaction
+        $logStmt->execute([$receiverId, 'transfer_in', $amount, 'Transfer from user ID ' . $senderId]);
+
         return ['success' => true, 'message' => "Transfer successful."];
 
     } catch (PDOException $e) {
-        $pdo->rollBack();
         error_log("Wallet transfer failed: " . $e->getMessage());
         return ['success' => false, 'message' => "Database error during transfer."];
     }
@@ -260,6 +269,36 @@ function assignAdminRole($pdo, $userId) {
         error_log("Error assigning admin role: " . $e->getMessage());
         return false;
     }
+}
+
+function getUserWalletBalance($pdo, $userId) {
+    $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    return $stmt->fetchColumn();
+}
+
+function debitUserWallet($pdo, $userId, $amount, $transactionDescription = '') {
+    if (!is_numeric($amount) || $amount <= 0) {
+        return false;
+    }
+    // Check sender's balance
+    $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $currentBalance = $stmt->fetchColumn();
+
+    if ($currentBalance < $amount) {
+        return false; // Insufficient funds
+    }
+
+    // Deduct from wallet
+    $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?");
+    $stmt->execute([$amount, $userId]);
+
+    // Log the transaction
+    $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+    $logStmt->execute([$userId, 'debit', -$amount, $transactionDescription]);
+
+    return true;
 }
 
 ?>
