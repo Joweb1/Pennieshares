@@ -282,7 +282,8 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         color: #22c55e;
     }
 
-    .status-badge.debit {
+    .status-badge.debit,
+    .status-badge.payout {
         background-color: rgba(234, 179, 8, 0.1);
         color: #eab308;
     }
@@ -307,7 +308,8 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         color: #4ade80;
     }
 
-    html[data-theme="dark"] .status-badge.debit {
+    html[data-theme="dark"] .status-badge.debit,
+    html[data-theme="dark"] .status-badge.payout {
         background-color: rgba(252, 211, 77, 0.15);
         color: #facc15;
     }
@@ -418,7 +420,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                             <td><?php echo htmlspecialchars($transaction['description']); ?></td>
                             <td>
                                 <span class="status-badge <?php echo htmlspecialchars($transaction['type']); ?>">
-                                    <?php echo ($transaction['type'] === 'debit' || $transaction['type'] === 'transfer_out') ? '-' : '+'; ?>₦<?php echo number_format(abs($transaction['amount']), 2); ?>
+                                    <?php echo ($transaction['type'] === 'debit' || $transaction['type'] === 'transfer_out' || $transaction['type'] === 'payout') ? '-' : '+'; ?>₦<?php echo number_format(abs($transaction['amount']), 2); ?>
                                 </span>
                             </td>
                         </tr>

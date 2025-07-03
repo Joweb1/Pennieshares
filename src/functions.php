@@ -243,7 +243,9 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
         
         // Log sender's transaction
         $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
-        $logStmt->execute([$senderId, 'payout', -$amount, 'Payout to user ID ' . $receiverId]);
+        $receiverUser = getUserByIdOrName($pdo, $receiverId);
+        $payoutDescription = 'Payout to ' . $receiverUser['username'] . '/' . $receiverUser['partner_code'];
+        $logStmt->execute([$senderId, 'payout', -$amount, $payoutDescription]);
 
         // Add to receiver
         $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?");
