@@ -59,51 +59,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handle Credit User Wallet form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'credit_wallet') {
-    $userId = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
+    $username = trim($_POST['username']);
     $amount = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT);
+    $user = getUserByIdOrName($pdo, $username);
 
-    if ($userId && $amount) {
-        $creditSuccess = creditUserWallet($userId, $amount);
+    if ($user && $amount) {
+        $creditSuccess = creditUserWallet($user['id'], $amount);
         if ($creditSuccess) {
-            $actionMessage = "Successfully credited user {$userId} with ₦{$amount}.";
+            $actionMessage = "Successfully credited user {$username} with ₦{$amount}.";
         } else {
             $actionMessage = "Error: Failed to credit wallet. Database operation failed.";
         }
     } else {
-        $actionMessage = "Error: Invalid user ID or amount.";
+        $actionMessage = "Error: Invalid username or amount.";
     }
 }
 
 // Handle Admin Transfer Wallet form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'admin_transfer_wallet') {
-    $senderId = filter_input(INPUT_POST, 'sender_user_id', FILTER_VALIDATE_INT);
-    $receiverId = filter_input(INPUT_POST, 'receiver_user_id', FILTER_VALIDATE_INT);
+    $sender_username = trim($_POST['sender_username']);
+    $receiver_username = trim($_POST['receiver_username']);
     $amount = filter_input(INPUT_POST, 'transfer_amount', FILTER_VALIDATE_FLOAT);
+    $sender = getUserByIdOrName($pdo, $sender_username);
+    $receiver = getUserByIdOrName($pdo, $receiver_username);
 
-    if ($senderId && $receiverId && $amount) {
-        $transferResult = transferWalletBalance($pdo, $senderId, $receiverId, $amount);
+    if ($sender && $receiver && $amount) {
+        $transferResult = transferWalletBalance($pdo, $sender['id'], $receiver['id'], $amount);
         if ($transferResult['success']) {
-            $actionMessage = "Successfully transferred ₦{$amount} from user {$senderId} to user {$receiverId}.";
+            $actionMessage = "Successfully transferred ₦{$amount} from user {$sender_username} to user {$receiver_username}.";
         } else {
             $actionMessage = "Error: " . $transferResult['message'];
         }
     } else {
-        $actionMessage = "Error: Invalid sender ID, receiver ID, or amount for transfer.";
+        $actionMessage = "Error: Invalid sender username, receiver username, or amount for transfer.";
     }
 }
 
 // Handle Assign Admin Role form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_admin_role') {
-    $userId = filter_input(INPUT_POST, 'user_id_admin', FILTER_VALIDATE_INT);
+    $username = trim($_POST['username']);
+    $user = getUserByIdOrName($pdo, $username);
 
-    if ($userId) {
-        if (assignAdminRole($pdo, $userId)) {
-            $actionMessage = "User #{$userId} assigned admin role successfully.";
+    if ($user) {
+        if (assignAdminRole($pdo, $user['id'])) {
+            $actionMessage = "User '{$username}' assigned admin role successfully.";
         } else {
-            $actionMessage = "Error: Failed to assign admin role to user #{$userId}. It might not exist or already be an admin.";
+            $actionMessage = "Error: Failed to assign admin role to user '{$username}'. It might not exist or already be an admin.";
         }
     } else {
-        $actionMessage = "Error: Invalid User ID.";
+        $actionMessage = "Error: Invalid Username.";
+    }
+}
+
+// Handle Verify User Account form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'verify_user_account') {
+    $username = trim($_POST['username']);
+    $user = getUserByIdOrName($pdo, $username);
+
+    if ($user) {
+        if (verifyUserAccount($pdo, $user['id'])) {
+            $actionMessage = "User '{$username}' verified successfully.";
+        } else {
+            $actionMessage = "Error: Failed to verify user '{$username}'. It might not exist or already be verified.";
+        }
+    } else {
+        $actionMessage = "Error: Invalid Username.";
     }
 }
 
@@ -146,39 +166,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $category = trim($_POST['new_asset_category']);
     $imageLink = null;
 
-    // Handle image upload
-    if (isset($_FILES['new_asset_image']) && $_FILES['new_asset_image']['error'] === UPLOAD_ERR_OK) {
-        $fileTmpPath = $_FILES['new_asset_image']['tmp_name'];
-        $fileName = $_FILES['new_asset_image']['name'];
-        $fileSize = $_FILES['new_asset_image']['size'];
-        $fileType = $_FILES['new_asset_image']['type'];
-        $fileNameCmps = explode(".", $fileName);
-        $fileExtension = strtolower(end($fileNameCmps));
+    // Server-side validation
+    if ($price < 18 || $price > 34) {
+        $actionMessage = "Error: Price must be between ₦18 and ₦34.";
+    } elseif (preg_match('/^[A-Z][a-zA-Z\s]*$/', $category) !== 1) {
+        $actionMessage = "Error: Category must start with a capital letter and contain only letters and spaces.";
+    } else {
+        // Handle image upload
+        if (isset($_FILES['new_asset_image']) && $_FILES['new_asset_image']['error'] === UPLOAD_ERR_OK) {
+            $fileTmpPath = $_FILES['new_asset_image']['tmp_name'];
+            $fileName = $_FILES['new_asset_image']['name'];
+            $fileSize = $_FILES['new_asset_image']['size'];
+            $fileType = $_FILES['new_asset_image']['type'];
+            $fileNameCmps = explode(".", $fileName);
+            $fileExtension = strtolower(end($fileNameCmps));
 
-        $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
-        $uploadFileDir = __DIR__ . '/../assets/images/';
-        $dest_path = $uploadFileDir . $newFileName;
+            $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
+            $uploadFileDir = __DIR__ . '/../assets/images/';
+            $dest_path = $uploadFileDir . $newFileName;
 
-        $allowedfileExtensions = array('jpg', 'gif', 'png', 'jpeg');
+            $allowedfileExtensions = array('jpg', 'gif', 'png', 'jpeg');
 
-        if (in_array($fileExtension, $allowedfileExtensions)) {
-            if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                $imageLink = '../assets/images/' . $newFileName;
+            if (in_array($fileExtension, $allowedfileExtensions)) {
+                if (move_uploaded_file($fileTmpPath, $dest_path)) {
+                    $imageLink = '../assets/images/' . $newFileName;
+                } else {
+                    $actionMessage = "Error: There was an error moving the uploaded file.";
+                }
             } else {
-                $actionMessage = "Error: There was an error moving the uploaded file.";
+                $actionMessage = "Error: Upload failed. Allowed file types: " . implode(',', $allowedfileExtensions);
             }
-        } else {
-            $actionMessage = "Error: Upload failed. Allowed file types: " . implode(',', $allowedfileExtensions);
         }
-    }
 
-    if (empty($name) || $price === false || $payoutCap === false || $durationMonths === false) {
-        $actionMessage = "Error: Invalid input for new asset type.";
-    } else if ($actionMessage === '') { // Only proceed if no file upload error occurred
-        if (addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink, $category)) {
-            $actionMessage = "Asset type '{$name}' added successfully.";
-        } else {
-            $actionMessage = "Error: Failed to add asset type.";
+        if (empty($name) || $price === false || $payoutCap === false || $durationMonths === false) {
+            $actionMessage = "Error: Invalid input for new asset type.";
+        } else if ($actionMessage === '') { // Only proceed if no file upload error occurred
+            if (addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink, $category)) {
+                $actionMessage = "Asset type '{$name}' added successfully.";
+            } else {
+                $actionMessage = "Error: Failed to add asset type.";
+            }
         }
     }
 }
@@ -200,16 +227,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handle Delete User Account form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_user_account') {
-    $userId = filter_input(INPUT_POST, 'user_id_delete', FILTER_VALIDATE_INT);
+    $username = trim($_POST['username']);
+    $user = getUserByIdOrName($pdo, $username);
 
-    if ($userId) {
-        if (deleteUserAccount($pdo, $userId)) {
-            $actionMessage = "User #{$userId} deleted successfully.";
+    if ($user) {
+        if (deleteUserAccount($pdo, $user['id'])) {
+            $actionMessage = "User '{$username}' deleted successfully.";
         } else {
-            $actionMessage = "Error: Failed to delete user #{$userId}. It might not exist.";
+            $actionMessage = "Error: Failed to delete user '{$username}'. It might not exist.";
         }
     } else {
-        $actionMessage = "Error: Invalid User ID.";
+        $actionMessage = "Error: Invalid Username.";
+    }
+}
+
+// Handle Delete Expired or Completed Assets form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_expired_or_completed_assets') {
+    $deletedCount = deleteExpiredOrCompletedAssets($pdo);
+    if ($deletedCount !== false) {
+        $actionMessage = "Successfully deleted {$deletedCount} expired or completed assets.";
+    } else {
+        $actionMessage = "Error: Failed to delete expired or completed assets.";
     }
 }
 
@@ -348,7 +386,7 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
         <h2>Credit User Wallet</h2>
         <form method="post">
             <input type="hidden" name="action" value="credit_wallet">
-            <div><label for="user_id">User ID:</label><input type="number" name="user_id" required></div>
+            <div><label for="username_credit">Username:</label><input type="text" name="username" id="username_credit" required></div>
             <div><label for="amount">Amount (₦):</label><input type="number" step="0.01" name="amount" required></div>
             <button type="submit">Credit Wallet</button>
         </form>
@@ -358,8 +396,8 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
         <h2>Transfer Wallet Balance (Admin)</h2>
         <form method="post">
             <input type="hidden" name="action" value="admin_transfer_wallet">
-            <div><label for="sender_user_id">Sender User ID:</label><input type="number" name="sender_user_id" id="sender_user_id" required></div>
-            <div><label for="receiver_user_id">Receiver User ID:</label><input type="number" name="receiver_user_id" id="receiver_user_id" required></div>
+            <div><label for="sender_username">Sender Username:</label><input type="text" name="sender_username" id="sender_username" required></div>
+            <div><label for="receiver_username">Receiver Username:</label><input type="text" name="receiver_username" id="receiver_username" required></div>
             <div><label for="transfer_amount">Amount (₦):</label><input type="number" step="0.01" name="transfer_amount" id="transfer_amount" required></div>
             <button type="submit">Transfer Funds</button>
         </form>
@@ -369,8 +407,17 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
         <h2>Assign Admin Role</h2>
         <form method="post">
             <input type="hidden" name="action" value="assign_admin_role">
-            <div><label for="user_id_admin">User ID:</label><input type="number" name="user_id_admin" id="user_id_admin" required></div>
+            <div><label for="username_admin">Username:</label><input type="text" name="username" id="username_admin" required></div>
             <button type="submit">Make Admin</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h2>Verify User Account</h2>
+        <form method="post">
+            <input type="hidden" name="action" value="verify_user_account">
+            <div><label for="username_verify">Username:</label><input type="text" name="username" id="username_verify" required></div>
+            <button type="submit">Verify User</button>
         </form>
     </div>
 
@@ -397,11 +444,11 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
         <form method="post" enctype="multipart/form-data">
             <input type="hidden" name="action" value="add_asset_type">
             <div><label for="new_asset_name">Asset Name (Company Name):</label><input type="text" name="new_asset_name" id="new_asset_name" required></div>
-            <div><label for="new_asset_price">Price (₦):</label><input type="number" step="0.01" name="new_asset_price" id="new_asset_price" required></div>
+            <div><label for="new_asset_price">Price (₦):</label><input type="number" step="any" min="18" max="34" name="new_asset_price" id="new_asset_price" required></div>
             <div><label for="new_asset_payout_cap">Payout Cap (₦):</label><input type="number" step="0.01" name="new_asset_payout_cap" id="new_asset_payout_cap" required></div>
             <div><label for="new_asset_duration_months">Duration (Months, 0 for unlimited):</label><input type="number" name="new_asset_duration_months" id="new_asset_duration_months" value="0" min="0" required></div>
             <div><label for="new_asset_image">Asset Image (Optional):</label><input type="file" name="new_asset_image" id="new_asset_image" accept="image/*"></div>
-            <div><label for="new_asset_category">Category:</label><input type="text" name="new_asset_category" id="new_asset_category" value="General" required></div>
+            <div><label for="new_asset_category">Category:</label><input type="text" name="new_asset_category" id="new_asset_category" value="General" pattern="[A-Z].*" title="Category must start with a capital letter." required></div>
             <button type="submit">Add Asset Type</button>
         </form>
     </div>
@@ -419,8 +466,17 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
         <h2>Delete User Account</h2>
         <form method="post">
             <input type="hidden" name="action" value="delete_user_account">
-            <div><label for="user_id_delete">User ID:</label><input type="number" name="user_id_delete" id="user_id_delete" required></div>
+            <div><label for="username_delete">Username:</label><input type="text" name="username" id="username_delete" required></div>
             <button type="submit">Delete User</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h2>Delete Expired or Completed Assets</h2>
+        <form method="post">
+            <input type="hidden" name="action" value="delete_expired_or_completed_assets">
+            <p>This action will permanently delete all assets that are either marked as 'completed' or whose expiration date has passed. This cannot be undone.</p>
+            <button type="submit" onclick="return confirm('Are you sure you want to delete all expired and completed assets?');">Delete Assets</button>
         </form>
     </div>
 
@@ -472,7 +528,7 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
     </table>
 
     <h2>All Users</h2>
-    <table><thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Wallet Balance</th><th>Is Admin?</th></tr></thead><tbody>
+    <table><thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Wallet Balance</th><th>Is Admin?</th><th>Status</th></tr></thead><tbody>
         <?php foreach ($users as $user): ?>
             <tr>
                 <td><?php echo $user['id']; ?></td>
@@ -481,6 +537,7 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
                 <td><?php echo htmlspecialchars($user['email']); ?></td>
                 <td>₦<?php echo number_format($user['wallet_balance'], 2); ?></td>
                 <td><?php echo $user['is_admin'] ? 'Yes' : 'No'; ?></td>
+                <td><?php echo $user['status'] == 2 ? 'Verified' : 'Not Verified'; ?></td>
             </tr>
         <?php endforeach; ?>
     </tbody></table>
@@ -528,6 +585,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     data: [<?php echo $assetStatusDistribution['active_count'] ?? 0; ?>, <?php echo $assetStatusDistribution['completed_count'] ?? 0; ?>, <?php echo $assetStatusDistribution['expired_count'] ?? 0; ?>],
                     backgroundColor: ['#27ae60', '#3498db', '#e74c3c']
                 }]
+            }
+        });
+    }
+
+    const priceInput = document.getElementById('new_asset_price');
+    const payoutCapInput = document.getElementById('new_asset_payout_cap');
+
+    if (priceInput && payoutCapInput) {
+        priceInput.addEventListener('input', function() {
+            const price = parseFloat(this.value);
+            if (!isNaN(price) && price > 0) {
+                const percentage = (price / 35) * 100;
+                const payoutCap = (726 * percentage) / 100;
+                payoutCapInput.value = payoutCap.toFixed(2);
+            } else {
+                payoutCapInput.value = '';
+            }
+        });
+    }
+
+    const categoryInput = document.getElementById('new_asset_category');
+    if(categoryInput) {
+        categoryInput.addEventListener('input', function() {
+            if (this.value.length > 0 && this.value[0] !== this.value[0].toUpperCase()) {
+                this.setCustomValidity('Category must start with a capital letter.');
+            } else {
+                this.setCustomValidity('');
             }
         });
     }

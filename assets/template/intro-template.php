@@ -415,13 +415,16 @@
         <ul class="nav-mobile-links">
           <li><a href="wallet"><span class="material-icons-outlined">account_balance_wallet</span>Wallet</a></li>
           <li><a href="market"><span class="material-icons-outlined">storefront</span>Market</a></li>
+          <li><a href="shares"><span class="material-icons-outlined">inventory</span>Assets</a></li>
           <li><a href="transactions"><span class="material-icons-outlined">receipt_long</span>Transactions<span class="notification-badge" id="notification-badge-mobile"></span></a></li>
           <li><a href="transfer"><span class="material-icons-outlined">swap_horiz</span>Transfer</a></li>
+          <li><a href="partner"><span class="material-icons-outlined">handshake</span>Partner</a></li>
           <li><a href="find_broker"><span class="material-icons-outlined">search</span>Find Broker</a></li>
           <li><a href="profile_view"><span class="material-icons-outlined">person</span>Profile</a></li>
           <li><a href="settings"><span class="material-icons-outlined">settings</span>Settings</a></li>
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <li><a href="admin"><span class="material-icons-outlined">admin_panel_settings</span>Admin Panel</a></li>
+          <li><a href="admin_verify"><span class="material-icons-outlined">verified_user</span>Verify Users</a></li>
           <?php endif; ?>
         </ul>
       </nav>
@@ -442,13 +445,16 @@
         <nav class="header-nav-desktop">
           <a href="wallet"><span class="material-icons-outlined">account_balance_wallet</span></a>
           <a href="market"><span class="material-icons-outlined">storefront</span></a>
+          <a href="shares"><span class="material-icons-outlined">inventory</span></a>
           <a href="transactions"><span class="material-icons-outlined">receipt_long</span></a>
           <a href="transfer"><span class="material-icons-outlined">swap_horiz</span></a>
+          <a href="partner"><span class="material-icons-outlined">handshake</span></a>
           <a href="find_broker"><span class="material-icons-outlined">search</span></a>
           <a href="profile_view"><span class="material-icons-outlined">person</span></a>
           <a href="settings"><span class="material-icons-outlined">settings</span></a>
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <a href="admin"><span class="material-icons-outlined">admin_panel_settings</span></a>
+          <a href="admin_verify"><span class="material-icons-outlined">verified_user</span></a>
           <?php endif; ?>
         </nav>
         </nav>

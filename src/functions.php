@@ -30,7 +30,7 @@ function registerUser($fullname, $email, $username, $phone, $referral, $password
                 :stage, :partner_code, :password)
     ");
 
-    return $stmt->execute([
+    $success = $stmt->execute([
         ':fullname'      => $fullname,
         ':email'         => $email,
         ':username'      => $username,
@@ -40,6 +40,8 @@ function registerUser($fullname, $email, $username, $phone, $referral, $password
         ':partner_code'  => $partner_code,
         ':password'      => $hash
     ]);
+
+    return $success;
 }
 
 // Generate unique partner code
@@ -410,6 +412,60 @@ function findBrokerStatus($pdo, $identifier) {
     }
 
     return 'not_found';
+}
+
+function verifyUserAccount($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET status = 2 WHERE id = ? AND status != 2");
+        $stmt->execute([$userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error verifying user account: " . $e->getMessage());
+        return false;
+    }
+}
+
+function deleteExpiredOrCompletedAssets($pdo) {
+    try {
+        // First, select the assets to be deleted to count them
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM assets WHERE is_completed = 1 OR (expires_at IS NOT NULL AND expires_at < datetime('now'))");
+        $stmt->execute();
+        $count = $stmt->fetchColumn();
+
+        // If there are assets to delete, proceed with deletion
+        if ($count > 0) {
+            $deleteStmt = $pdo->prepare("DELETE FROM assets WHERE is_completed = 1 OR (expires_at IS NOT NULL AND expires_at < datetime('now'))");
+            $deleteStmt->execute();
+            return $deleteStmt->rowCount();
+        }
+        return 0; // No assets were deleted
+    } catch (PDOException $e) {
+        error_log("Error deleting expired or completed assets: " . $e->getMessage());
+        return false;
+    }
+}
+
+function deletePaymentProof($pdo, $proofId) {
+    try {
+        // Get the file path before deleting the record
+        $stmt = $pdo->prepare("SELECT file_path FROM payment_proofs WHERE id = ?");
+        $stmt->execute([$proofId]);
+        $filePath = $stmt->fetchColumn();
+
+        // Delete the record from the database
+        $deleteStmt = $pdo->prepare("DELETE FROM payment_proofs WHERE id = ?");
+        $deleteStmt->execute([$proofId]);
+
+        // If the record was deleted and a file path exists, delete the file
+        if ($deleteStmt->rowCount() > 0 && $filePath && file_exists($filePath)) {
+            unlink($filePath);
+        }
+
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error deleting payment proof: " . $e->getMessage());
+        return false;
+    }
 }
 
 ?>

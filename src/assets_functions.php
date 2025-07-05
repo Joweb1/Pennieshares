@@ -23,14 +23,30 @@ function getCompanyFunds($pdo) {
 function checkAndMarkExpiredAssets($pdo) {
     $now = date('Y-m-d H:i:s');
     // Select assets that have an expiry date, are not already completed, not already marked manually expired, and whose expiry date is in the past
-    $stmt = $pdo->prepare("UPDATE assets 
-                          SET is_manually_expired = 1 
-                          WHERE expires_at IS NOT NULL 
-                          AND expires_at < :now 
-                          AND is_completed = 0
-                          AND is_manually_expired = 0");
+    $stmt = $pdo->prepare("SELECT a.id, a.user_id, at.name as asset_name FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE expires_at IS NOT NULL AND expires_at < :now AND is_completed = 0 AND is_manually_expired = 0");
     $stmt->execute([':now' => $now]);
-    return $stmt->rowCount(); // Returns the number of assets newly marked as expired
+    $expiredAssets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($expiredAssets as $asset) {
+        $updateStmt = $pdo->prepare("UPDATE assets SET is_manually_expired = 1 WHERE id = ?");
+        $updateStmt->execute([$asset['id']]);
+
+        // Send email notification
+        /*
+        $user = getUserByIdOrName($pdo, $asset['user_id']);
+        if ($user) {
+            $emailBody = getAssetStatusEmailTemplate(
+                $user['username'],
+                $asset['asset_name'],
+                'Expired',
+                "Your asset '{$asset['asset_name']}' has reached its expiration date and is no longer active." .
+                "\nAsset ID: #{$asset['id']}"
+            );
+            sendEmail($user['email'], $user['username'], "Asset Expired - Pennieshares", $emailBody);
+        }
+        */
+    }
+    return count($expiredAssets); // Returns the number of assets newly marked as expired
 }
 
 
@@ -247,6 +263,17 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
 
     $overallResults['summary'][] = "Successfully purchased {$numAssetsToBuy} of '{$assetType['name']}'. Total Cost: SV" . number_format($totalCost, 2) . ".";
     
+    // Send email notification for asset purchase
+    /*
+    $user = getUserByIdOrName($pdo, $userId);
+    if ($user) {
+        $currentBalance = getUserWalletBalance($pdo, $userId);
+        $description = "Purchase of {$numAssetsToBuy} x {$assetType['name']}";
+        $emailBody = getTransactionEmailTemplate($user['username'], 'buy_asset', $totalCost, $description, $currentBalance);
+        sendEmail($user['email'], $user['username'], "Asset Purchase Confirmation - Pennieshares", $emailBody);
+    }
+    */
+
     return $overallResults;
 }
 
@@ -357,8 +384,31 @@ function markAssetExpired($pdo, $assetId) {
 function markAssetCompleted($pdo, $assetId) {
     try {
         $stmt = $pdo->prepare("UPDATE assets SET is_completed = 1, completed_at = datetime('now') WHERE id = ?");
-        $stmt->execute([$assetId]);
-        return $stmt->rowCount() > 0;
+        $result = $stmt->execute([$assetId]);
+        
+        if ($result && $stmt->rowCount() > 0) {
+            // Fetch asset and user details for email
+            $assetStmt = $pdo->prepare("SELECT a.user_id, at.name as asset_name FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.id = ?");
+            $assetStmt->execute([$assetId]);
+            $asset = $assetStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($asset) {
+                $user = getUserByIdOrName($pdo, $asset['user_id']);
+                if ($user) {
+                    /*
+                    $emailBody = getAssetStatusEmailTemplate(
+                        $user['username'],
+                        $asset['asset_name'],
+                        'Completed',
+                        "Congratulations! Your asset '{$asset['asset_name']}' has reached its payout cap and is now completed." .
+                        "\nAsset ID: #{$assetId}"
+                    );
+                    sendEmail($user['email'], $user['username'], "Asset Completed - Pennieshares", $emailBody);
+                    */
+                }
+            }
+        }
+        return $result && $stmt->rowCount() > 0;
     } catch (PDOException $e) {
         error_log("Error marking asset as completed: " . $e->getMessage());
         return false;

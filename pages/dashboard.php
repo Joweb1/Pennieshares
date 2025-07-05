@@ -26,6 +26,17 @@ if (isset($_SESSION['verification_error'])) {
     $show_verification_modal = true;
     unset($_SESSION['verification_error']);
 }
+
+// Daily Office Visit Email Logic
+/*
+$today = date('Y-m-d');
+if (!isset($_SESSION['last_daily_email_sent']) || $_SESSION['last_daily_email_sent'] !== $today) {
+    $dashboardLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://{$_SERVER['HTTP_HOST']}/dashboard";
+    $emailBody = getDailyVisitEmailTemplate($user['username'], $dashboardLink);
+    sendEmail($user['email'], $user['username'], "Your Daily Pennieshares Check-in!", $emailBody);
+    $_SESSION['last_daily_email_sent'] = $today;
+}
+*/
 ?>
 <!DOCTYPE html>
 <html lang="en">

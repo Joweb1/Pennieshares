@@ -437,7 +437,7 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
     color: #fecaca;
     }
     
-    @container (max-width: 600px) { .col-status { display: none; } }
+    
     @container (max-width: 480px) { .col-bonus { display: none; } }
     @container (max-width: 360px) { .col-asset { display: none; } }
     @container (max-width: 240px) { .col-date { display: none; } }
@@ -529,7 +529,7 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
     <div class="referral-link-section">
         <div class="input-with-icon">
             <input id="referral-link-input" class="form-input" readonly value="<?= $referral_link ?>" />
-            <button id="copy-btn" class="icon-btn copy-btn" aria-label="Copy referral link">
+            <button id="copy-btn" class="icon-btn copy-btn" aria-label="Copy partner codec">
                 <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"></path></svg>
                 <span class="copy-feedback">Copied!</span>
             </button>
@@ -544,7 +544,7 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
         <button class="btn btn-secondary">View Terms</button>
     </div>
 
-    <h3>Referral History</h3>
+    <h3>Partner History</h3>
     <div class="table-container">
         <div class="table-wrapper">
             <table>
@@ -552,7 +552,7 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
                     <tr>
                         <th class="col-name">Partner Name/Partnering Code</th>
                         <th class="col-date">Date Joined</th>
-                        <th class="col-status">Bonus Status</th>
+                        <th class="col-status">Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -572,17 +572,17 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
         </div>
     </div>
         
-    <h3>Referral Instructions</h3>
+    <h3>Get Partners</h3>
     <div class="accordion-container">
         <details class="accordion-item" open>
             <summary>
-                <span>How to Refer Friends</span>
+                <span>How to get partners</span>
                 <svg class="caret-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
             </summary>
             <p>
-                1. Share your unique referral link with friends.<br>
-                2. Your friend signs up and makes their first investment.<br>
-                3. You both receive a bonus once the investment is confirmed.
+                1. Share your unique partner code with friends.<br>
+                2. Your friend signs up and verify their account.<br>
+                3. You now stand a chance to become a broker.
             </p>
         </details>
     </div>
