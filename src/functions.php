@@ -186,7 +186,7 @@ function deleteUserAccount($pdo, $userId) {
 	}
 	}
 
-function creditUserWallet($userId, $amount, $description = 'Admin Credit') {
+function creditUserWallet($userId, $amount, $description = 'Broker Credited You') {
     global $pdo;
     if (!is_numeric($amount) || $amount <= 0) {
         return false;
@@ -207,12 +207,53 @@ function creditUserWallet($userId, $amount, $description = 'Admin Credit') {
     }
 }
 
+function updateUserProfile($pdo, $userId, $fullname, $phone) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET fullname = ?, phone = ? WHERE id = ?");
+        $stmt->execute([$fullname, $phone, $userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error updating user profile: " . $e->getMessage());
+        return false;
+    }
+}
+
+function updateUserPassword($pdo, $userId, $oldPassword, $newPassword) {
+    try {
+        // Verify old password first
+        $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $hashedPassword = $stmt->fetchColumn();
+
+        if (!password_verify($oldPassword, $hashedPassword)) {
+            return false; // Old password does not match
+        }
+
+        // Hash new password and update
+        $newHashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $stmt->execute([$newHashedPassword, $userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error updating user password: " . $e->getMessage());
+        return false;
+    }
+}
+
 function getUserByIdOrName($pdo, $identifier) {
     if (is_numeric($identifier)) {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$identifier]);
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?"); // Assuming username for string identifier
+        // Try username first
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$identifier]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user) {
+            return $user;
+        }
+        // If not found by username, try partner_code
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE partner_code = ?");
         $stmt->execute([$identifier]);
     }
     return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -301,6 +342,74 @@ function debitUserWallet($pdo, $userId, $amount, $transactionDescription = '') {
     $logStmt->execute([$userId, 'debit', -$amount, $transactionDescription]);
 
     return true;
+}
+
+function getPaginatedWalletTransactions($pdo, $userId, $limit, $offset, $type = null) {
+    $sql = "SELECT * FROM wallet_transactions WHERE user_id = ?";
+    $params = [$userId];
+
+    if ($type && $type !== 'all') {
+        // Handle special cases for 'payout' and 'credit' as they map to multiple types
+        if ($type === 'payout') {
+            $sql .= " AND (type = 'payout' OR type = 'transfer_out')";
+        } elseif ($type === 'credit') {
+            $sql .= " AND (type = 'credit' OR type = 'transfer_in')";
+        } else {
+            $sql .= " AND type = ?";
+            $params[] = $type;
+        }
+    }
+
+    $sql .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getTotalWalletTransactionCount($pdo, $userId, $type = null) {
+    $sql = "SELECT COUNT(*) FROM wallet_transactions WHERE user_id = ?";
+    $params = [$userId];
+
+    if ($type && $type !== 'all') {
+        // Handle special cases for 'payout' and 'credit' as they map to multiple types
+        if ($type === 'payout') {
+            $sql .= " AND (type = 'payout' OR type = 'transfer_out')";
+        } elseif ($type === 'credit') {
+            $sql .= " AND (type = 'credit' OR type = 'transfer_in')";
+        } else {
+            $sql .= " AND type = ?";
+            $params[] = $type;
+        }
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchColumn();
+}
+
+function findBrokerStatus($pdo, $identifier) {
+    // Try to find by username
+    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE username = ?");
+    $stmt->execute([$identifier]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+        return $user['is_admin'] == 1 ? 'certified_broker' : 'not_certified_broker';
+    }
+
+    // If not found by username, try by partner_code
+    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE partner_code = ?");
+    $stmt->execute([$identifier]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+        return $user['is_admin'] == 1 ? 'certified_broker' : 'not_certified_broker';
+    }
+
+    return 'not_found';
 }
 
 ?>

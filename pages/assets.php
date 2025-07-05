@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <option value="">-- Select Type --</option>
                     <?php foreach ($assetTypes as $type): ?>
                         <option value="<?php echo $type['id']; ?>">
-                            <?php echo htmlspecialchars($type['name']); ?> (Price: ₦<?php echo number_format($type['price'],2); ?>)
+                            <?php echo htmlspecialchars($type['name']); ?> (Price: SV<?php echo number_format($type['price'],2); ?>)
                         </option>
                     <?php endforeach; ?>
                 </select>

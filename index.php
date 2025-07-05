@@ -10,7 +10,7 @@ if ($request_uri == '' || $request_uri == 'index.php') {
 }
 
 // Define available pages
-$pages = ['home', 'login', 'register', 'dashboard', 'profile', 'forgot_password', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','stages','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions'];
+$pages = ['home', 'login', 'register', 'dashboard', 'profile', 'profile_view', 'profile_edit', 'find_broker', 'forgot_password', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','stages','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions', 'wallet', 'shares', 'loading', 'partner', 'settings', 'api/generate_transaction_history'];
 
 // Retrieve query parameters safely
 $partnercode = $_GET['partnercode'] ?? NULL; // Example: ?token=abc123
@@ -18,8 +18,12 @@ $partnercode = $_GET['partnercode'] ?? NULL; // Example: ?token=abc123
 // Debugging: Print token (Remove in production
 // Check if the requested page exists
 if (in_array($request_uri, $pages)) {
-    // Include the page while keeping query parameters available
-    require "pages/$request_uri.php";
+    if ($request_uri === 'api/generate_transaction_history') {
+        require "pages/api/generate_transaction_history.php";
+    } else {
+        // Include the page while keeping query parameters available
+        require "pages/$request_uri.php";
+    }
 } else {
     // Send a 404 header and display an error page
     http_response_code(404);

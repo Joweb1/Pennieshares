@@ -245,7 +245,7 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
         $overallResults['purchases'][] = $currentPurchaseResult;
     }
 
-    $overallResults['summary'][] = "Successfully purchased {$numAssetsToBuy} of '{$assetType['name']}'. Total Cost: ₦" . number_format($totalCost, 2) . ".";
+    $overallResults['summary'][] = "Successfully purchased {$numAssetsToBuy} of '{$assetType['name']}'. Total Cost: SV" . number_format($totalCost, 2) . ".";
     
     return $overallResults;
 }

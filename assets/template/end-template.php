@@ -1,77 +1,100 @@
-</div>
-      </main>
-    </div>
-
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-const themeToggle = document.getElementById('theme-toggle');
-const html = document.documentElement;
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeToggleSettings = document.getElementById('theme-toggle-settings');
+        const html = document.documentElement;
 
-      //  const themeToggler = document.getElementById('theme-toggled');
-    const body = document.body;
+        const applyTheme = (theme) => {
+            if (theme === 'dark') {
+                html.setAttribute('data-theme', theme);
+                document.body.classList.add('dark-theme');
+                document.body.classList.remove('light-theme');
+                if (themeToggleSettings) {
+                    themeToggleSettings.checked = true;
+                }
+            } else {
+                document.body.classList.remove('dark-theme');
+                document.body.classList.add('light-theme');
+                html.setAttribute('data-theme', theme);
+                if (themeToggleSettings) {
+                    themeToggleSettings.checked = false;
+                }
+            }
+        };
+        
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    // Function to apply theme
-    const applyTheme = (theme) => {
-        if (theme === 'dark') {
-            html.setAttribute('data-theme', theme);
-            body.classList.add('dark-theme');
-           body.classList.remove('light-theme')
-           // themeToggler.checked = true;
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else if (prefersDark) {
+            applyTheme('dark');
         } else {
-           body.classList.remove('dark-theme');
-           body.classList.add('light-theme')
-           // themeToggler.checked = false;
-           html.setAttribute('data-theme', theme);
+            applyTheme('light');
         }
-    };
-    
-    // Check for saved theme in localStorage
-    const savedTheme = localStorage.getItem('theme');
-    // Check for user's system preference
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    // Prioritize saved theme, then system preference, then default to light
-    if (savedTheme) {
-        applyTheme(savedTheme);
-    } else if (prefersDark) {
-        applyTheme('dark');
-    } else {
-        applyTheme('light'); // Default
-    }
+        themeToggle.addEventListener('click', () => {
+          const currentTheme = html.getAttribute('data-theme');
+          const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+          applyTheme(newTheme);
+          localStorage.setItem('theme', newTheme);
+        });
 
-    // Event listener for the toggle switch
-    
+        if (themeToggleSettings) {
+            themeToggleSettings.addEventListener('change', () => {
+                const newTheme = themeToggleSettings.checked ? 'dark' : 'light';
+                applyTheme(newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+        }
 
+        const burgerMenu = document.getElementById('burger-menu');
+        const closeMenuBtn = document.getElementById('close-menu-btn');
+        const mobileNav = document.getElementById('nav-mobile');
+        const navOverlay = document.getElementById('nav-overlay');
 
-// 3. Add event listener for the toggle button
-themeToggle.addEventListener('click', () => {
-  const currentTheme = html.getAttribute('data-theme');
-  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-  applyTheme(newTheme);
-  localStorage.setItem('theme', newTheme);
-});
+        const openNav = () => {
+            mobileNav.classList.add('is-open');
+            navOverlay.classList.add('is-open');
+            document.body.style.overflow = 'hidden';
+        };
 
-// --- Mobile Navigation ---
-const burgerMenu = document.getElementById('burger-menu');
-const closeMenuBtn = document.getElementById('close-menu-btn');
-const mobileNav = document.getElementById('nav-mobile');
-const navOverlay = document.getElementById('nav-overlay');
+        const closeNav = () => {
+            mobileNav.classList.remove('is-open');
+            navOverlay.classList.remove('is-open');
+            document.body.style.overflow = '';
+        };
 
-const openNav = () => {
-    mobileNav.classList.add('is-open');
-    navOverlay.classList.add('is-open');
-    document.body.style.overflow = 'hidden'; // Prevent scrolling
-};
+        burgerMenu.addEventListener('click', openNav);
+        closeMenuBtn.addEventListener('click', closeNav);
+        navOverlay.addEventListener('click', closeNav);
 
-const closeNav = () => {
-    mobileNav.classList.remove('is-open');
-    navOverlay.classList.remove('is-open');
-    document.body.style.overflow = ''; // Restore scrolling
-};
+        // --- Notification Badge Logic ---
+        const currentTotalTransactions = <?php echo json_encode($totalTransactionCount ?? 0); ?>;
+        const currentUserId = <?php echo json_encode($currentUserId ?? null); ?>;
+        const lastReadTransactions = parseInt(localStorage.getItem(`lastReadTransactions_${currentUserId}`)) || 0;
+        const unreadCount = currentTotalTransactions - lastReadTransactions;
 
-burgerMenu.addEventListener('click', openNav);
-closeMenuBtn.addEventListener('click', closeNav);
-navOverlay.addEventListener('click', closeNav);
+        const notificationBadge = document.getElementById('notification-badge');
+        const notificationBadgeMobile = document.getElementById('notification-badge-mobile');
+
+        if (unreadCount > 0) {
+            if (notificationBadge) {
+                notificationBadge.textContent = unreadCount;
+                notificationBadge.style.display = 'block';
+            }
+            if (notificationBadgeMobile) {
+                notificationBadgeMobile.textContent = unreadCount;
+                notificationBadgeMobile.style.display = 'block';
+            }
+        } else {
+            if (notificationBadge) {
+                notificationBadge.style.display = 'none';
+            }
+            if (notificationBadgeMobile) {
+                notificationBadgeMobile.style.display = 'none';
+            }
+        }
       });
     </script>
   </body>

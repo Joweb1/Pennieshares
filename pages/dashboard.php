@@ -17,6 +17,15 @@ function countReferrals($partner_code) {
 }
 
 $referral_count = countReferrals($partner_code);
+
+$show_verification_modal = false;
+if (isset($_GET['verification_required']) && $_GET['verification_required'] == 'true') {
+    $show_verification_modal = true;
+}
+if (isset($_SESSION['verification_error'])) {
+    $show_verification_modal = true;
+    unset($_SESSION['verification_error']);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -571,8 +580,10 @@ $referral_count = countReferrals($partner_code);
      </a>
     </div>
     <div class="box">
-      <i class="fas fa-tv-alt"></i>
-      <p>Office</p>
+      <a href="loading">
+        <i class="fas fa-tv-alt"></i>
+        <p>Office</p>
+      </a>
     </div>
     <div class="box">
     <a href="profile" >
@@ -714,6 +725,20 @@ $referral_count = countReferrals($partner_code);
     	});
     	});
 	<?php endif; ?>
+
+    <?php if ($show_verification_modal): ?>
+    showModal(
+        '<i class="fas fa-exclamation-triangle"></i> Account Verification Required',
+        `<div class="verification-alert">
+        <p>You need to verify your account to access that feature.</p>
+        <div class="action-buttons">
+        <button class="pp-btn pp-btn-primary" onclick="window.location.href='/payment'">
+        <i class="fas fa-shield-check"></i> Verify Account
+        </button>
+        </div>
+        </div>`
+    );
+    <?php endif; ?>
 	
 	// Info Blocks Click
 	document.querySelectorAll('.info-block').forEach((block, index) => {

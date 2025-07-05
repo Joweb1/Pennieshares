@@ -78,30 +78,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	  	}
 	  	.up-circle {
 	  	top:0;
-	  	left:0;
+	  	left: 50%;
+	  	transform: translateX(-50%);
 	  	position:absolute;
 	  	background: linear-gradient(135deg, rgba(0,0,250,1) 0%, rgba(2,0,102,1) 100%);
-	  	height:40vh;
-	  	width:130vw;
-	  	transform:translateX(-30vw);
+	  	height: 30vh; /* Adjusted height */
+	  	width: 100vw; /* Adjusted width */
 	  	z-index:-90;
-	  	border-bottom-left-radius: 90% 40%;
-	  	border-bottom-right-radius: 100% 100%;
+	  	border-bottom-left-radius: 50% 20%; /* Adjusted radius */
+	  	border-bottom-right-radius: 50% 20%; /* Adjusted radius */
 	  	}
 	  	.cont {
 	  	overflow-x:hidden;
 	  	width:100vw;
-	  	height:100vh;
+	  	min-height:100vh; /* Changed to min-height */
 	  	}
 	  	
 	  	/* HEADER (TOP SECTION) */
 	  	.header-container {
-	  	/* Blue gradient background 
-	  	background: linear-gradient(135deg, #0D47A1 0%, #2962FF 100%);*/
 	  	padding: 20px;
 	  	position: relative;
-	  	border-bottom-left-radius: 50% 10%;
-	  	border-bottom-right-radius: 50% 10%;
+	  	/* Removed border-radius from here as up-circle handles it */
 	  	}
 	  	
 	  	/* Top row with username and icons */
@@ -194,7 +191,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	  	.partner-stats {
 	  	flex-direction: column;
 	  	}
-	  	
+	  	.payment-container {
+	  	margin: 10px auto; /* Adjust margin for smaller screens */
+	  	padding: 0 10px; /* Adjust padding for smaller screens */
+	  	}
+	  	.back {
+	  	top: 15px; /* Adjust top position for smaller screens */
+	  	left: 15px; /* Adjust left position for smaller screens */
+	  	}
 	  	}
 	  
 	    /* Add to existing styles */

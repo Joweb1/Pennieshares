@@ -4,7 +4,6 @@ require_once __DIR__ . '/../config/database.php'; // Initializes $pdo and consta
 require_once __DIR__ . '/../src/functions.php';     // Your original functions (incl. secureSession, check_auth, wallet functions)
 require_once __DIR__ . '/../src/assets_functions.php'; // Engine functions (incl. getAssetTypes, buyAsset)
 
-// secureSession(); // Start/secure session
 check_auth();    // Ensure user is logged in
 
 $loggedInUser = $_SESSION['user'];
@@ -16,14 +15,12 @@ $preselectedAssetTypeId = filter_input(INPUT_GET, 'asset_type_id', FILTER_VALIDA
 $assetTypes = getAssetTypes($pdo); // Fetch all available asset types
 $currentUserWalletBalance = getUserWalletBalance($pdo, $loggedInUserId); // You'll need to create this function
 
-$actionMessage = '';
-$messageType = 'info'; // 'info', 'success', 'error'
-$purchaseDetailsLog = null; // To store logs from buyAsset
-
 // 3. HANDLE FORM SUBMISSION (PHP LOGIC)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'confirm_purchase') {
     $assetTypeId = filter_input(INPUT_POST, 'asset_type_id', FILTER_VALIDATE_INT);
     $quantity = filter_input(INPUT_POST, 'quantity', FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+
+    $_SESSION['purchase_status'] = 'error'; // Default to error
 
     if ($assetTypeId && $quantity && $quantity > 0) {
         $selectedAssetType = null;
@@ -38,79 +35,176 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $totalCost = $selectedAssetType['price'] * $quantity;
 
             if ($currentUserWalletBalance >= $totalCost) {
-                // -------- CORE PURCHASE LOGIC -----------
                 $pdo->beginTransaction();
                 try {
-                    // 1. Debit User's Wallet
-                    // This function needs to update users.wallet_balance AND log to wallet_transactions
-                    $debitSuccess = debitUserWallet(
-                        $pdo,
-                        $loggedInUserId,
-                        $totalCost,
-                        "Purchase of {$quantity} x {$selectedAssetType['name']} (Asset Type ID: {$assetTypeId})"
-                    );
+                    $debitSuccess = debitUserWallet($pdo, $loggedInUserId, $totalCost, "Purchase of {$quantity} x {$selectedAssetType['name']}");
+                    if (!$debitSuccess) throw new Exception("Wallet debit failed.");
 
-                    if (!$debitSuccess) {
-                        throw new Exception("Wallet debit failed. Insufficient balance or other issue.");
-                    }
-
-                    // 2. Call the Engine's buyAsset function
-                    // $purchaseDetails will contain logs and success/error info from the engine
                     $purchaseDetails = buyAsset($pdo, $loggedInUserId, $assetTypeId, $quantity);
-                    $purchaseDetailsLog = $purchaseDetails; // Store for display
-
-                    // Check if buyAsset itself reported an error (e.g., in its 'purchases' array or 'summary')
-                    $engineError = false;
-                    if (isset($purchaseDetails['purchases'][0]['error'])) {
-                        $engineError = true;
-                        throw new Exception("Asset purchase engine error: " . $purchaseDetails['purchases'][0]['error']);
-                    }
-                    foreach ($purchaseDetails['summary'] as $summaryLine) {
-                        if (stripos($summaryLine, 'error') !== false || stripos($summaryLine, 'failed') !== false) {
-                             $engineError = true;
-                             throw new Exception("Asset purchase failed: " . $summaryLine);
-                        }
-                    }
-
-
+                    if (isset($purchaseDetails['purchases'][0]['error'])) throw new Exception($purchaseDetails['purchases'][0]['error']);
+                    
                     $pdo->commit();
-                    $actionMessage = "Successfully purchased {$quantity} of '{$selectedAssetType['name']}'.";
-                    $messageType = 'success';
-                    // Refresh wallet balance after successful transaction
-                    $currentUserWalletBalance = getUserWalletBalance($pdo, $loggedInUserId);
+                    $_SESSION['purchase_status'] = 'success';
+                    $_SESSION['purchase_details'] = [
+                        'asset_name' => $selectedAssetType['name'],
+                        'quantity' => $quantity,
+                        'total_cost' => $totalCost
+                    ];
 
                 } catch (Exception $e) {
                     $pdo->rollBack();
-                    $actionMessage = "Purchase failed: " . $e->getMessage();
-                    $messageType = 'error';
-                    // If $purchaseDetailsLog was set before error, it might still be useful
-                    if (isset($purchaseDetails) && empty($purchaseDetailsLog)) $purchaseDetailsLog = $purchaseDetails;
+                    $_SESSION['purchase_message'] = "Purchase failed: " . $e->getMessage();
                 }
-                // -------- END CORE PURCHASE LOGIC --------
             } else {
-                $actionMessage = "Insufficient wallet balance. Required: " . number_format($totalCost, 2) . ", Available: " . number_format($currentUserWalletBalance, 2);
-                $messageType = 'error';
+                $_SESSION['purchase_message'] = "Insufficient wallet balance.";
             }
         } else {
-            $actionMessage = "Please select a valid asset type and quantity.";
-            $messageType = 'error';
+            $_SESSION['purchase_message'] = "Invalid asset type selected.";
         }
     } else {
-        $actionMessage = "Please select a valid asset type and quantity.";
-        $messageType = 'error';
+        $_SESSION['purchase_message'] = "Invalid asset type or quantity.";
     }
+    header("Location: buy_shares");
+    exit();
 }
+
+// Check for status flag from session
+$purchaseStatus = $_SESSION['purchase_status'] ?? null;
+$modalMessage = $_SESSION['purchase_message'] ?? '';
+$purchaseDetails = $_SESSION['purchase_details'] ?? [];
+
+unset($_SESSION['purchase_status'], $_SESSION['purchase_message'], $_SESSION['purchase_details']);
+
+// Refresh user balance for display
+$currentUserWalletBalance = getUserWalletBalance($pdo, $loggedInUserId);
 
 // 4. INCLUDE HEADER TEMPLATE
 require_once __DIR__ . '/../assets/template/intro-template.php';
 ?>
 
     <style>
+        /* --- Purchase Modal --- */
+        .purchase-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        .purchase-modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .purchase-modal-content {
+            border-radius: 24px;
+            padding: 2.5rem;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        html[data-theme="light"] .purchase-modal-content {
+            background: rgba(255, 255, 255, 0.75); /* Adjusted for better light mode glassmorphism */
+            border: 1px solid rgba(255, 255, 255, 1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+        html[data-theme="dark"] .purchase-modal-content {
+             background: rgba(30, 41, 59, 0.6); /* Adjusted for better dark mode glassmorphism */
+             border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* --- Animation States --- */
+        .modal-state { display: none; }
+        .modal-state.active { display: block; }
+
+        /* Processing Animation */
+        .processing-animation .spinner {
+            width: 80px;
+            height: 80px;
+            border: 6px solid rgba(var(--accent-color-rgb), 0.2);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .modal-text {
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        /* Success Animation */
+        .success-animation .success-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1rem;
+        }
+        .success-animation .checkmark {
+            stroke: var(--accent-color);
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+        }
+        @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+        }
+        .modal-info {
+            background-color: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1.5rem;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            padding: 0.5rem 0;
+        }
+        .info-item .label { color: var(--text-secondary); }
+        .info-item .value { font-weight: 600; }
+        .close-modal-btn {
+            margin-top: 1.5rem;
+            width: 100%;
+        }
+
+        /* Error Animation */
+        .error-animation .error-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1rem;
+        }
+        .error-animation .x-mark {
+            stroke: #ef4444; /* Red color for error */
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+        }
+
         /* Keep your existing well-structured CSS, with minor adjustments */
         /* Root variables from buy_shares.php can be kept or merged with your site's global styles */
         :root { /* If not globally defined */
             --font-family-main: 'Inter', 'Noto Sans', sans-serif;
             --border-radius: 0.75rem;
+            --accent-color-rgb: 12, 127, 242;
         }
         /* ... (rest of your CSS, removing styles for payment methods, file upload) ... */
         body {
@@ -257,65 +351,9 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         <div class="container">
             <h1 class="main-title">Invest in Assets</h1>
 
-            <?php if ($actionMessage): ?>
+            <?php if (isset($actionMessage) && $actionMessage): // Display PHP messages if any, before modal takes over ?>
                 <div class="message-box <?php echo htmlspecialchars($messageType); ?>">
                     <?php echo htmlspecialchars($actionMessage); ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($purchaseDetailsLog && ($messageType === 'success' || $messageType === 'error')): // Show logs on result ?>
-                <div class="result-section">
-                    <h4>Transaction Details:</h4>
-                    <div class="purchase-log-details">
-                        <?php
-                        // Enhanced logging display
-                        if (isset($purchaseDetailsLog['summary'])) {
-                            echo "<strong>Summary:</strong>
-";
-                            foreach ($purchaseDetailsLog['summary'] as $line) {
-                                echo htmlspecialchars($line) . "
-";
-                            }
-                        }
-                        if (isset($purchaseDetailsLog['purchases'])) {
-                            foreach ($purchaseDetailsLog['purchases'] as $idx => $details) {
-                                echo "
-<strong>Asset Buy Attempt " . ($idx + 1) . ":</strong>
-";
-                                if (isset($details['error'])) {
-                                    echo "  <span style='color:red;'>Error: " . htmlspecialchars($details['error']) . "</span>
-";
-                                } else {
-                                    echo "  Message: " . htmlspecialchars($details['message'] ?? 'N/A') . "
-";
-                                    if(!empty($details['parent_update'])) echo "  Parent Update: " . htmlspecialchars($details['parent_update']) . "
-";
-                                    if(!empty($details['company_profit_log'])) echo "  Company Profit: " . htmlspecialchars($details['company_profit_log']) . "
-";
-                                    if(!empty($details['reservation_direct_log'])) echo "  Reservation Fund: " . htmlspecialchars($details['reservation_direct_log']) . "
-";
-                                    if(!empty($details['generational_payouts_log'])) {
-                                        echo "  Generational Payouts:
-";
-                                        foreach($details['generational_payouts_log'] as $log) echo "    - " . htmlspecialchars($log) . "
-";
-                                    }
-                                    if(!empty($details['shared_payouts_log'])) {
-                                        echo "  Shared Payouts:
-";
-                                        foreach($details['shared_payouts_log'] as $log) echo "    - " . htmlspecialchars($log) . "
-";
-                                    }
-                                }
-                            }
-                        }
-                        if (isset($purchaseDetailsLog['expired_check_count']) && $purchaseDetailsLog['expired_check_count'] > 0) {
-                            echo "
-Assets newly marked as expired during operation: " . htmlspecialchars($purchaseDetailsLog['expired_check_count']) . "
-";
-                        }
-                        ?>
-                    </div>
                 </div>
             <?php endif; ?>
 
@@ -325,7 +363,7 @@ Assets newly marked as expired during operation: " . htmlspecialchars($purchaseD
                 <!-- Step 1: Selection -->
                 <div id="step-1-selection" class="form-section">
                     <div class="wallet-balance-display">
-                        Your Wallet Balance: <strong>₦ <?php echo number_format($currentUserWalletBalance, 2); ?></strong>
+                        Your Wallet Balance: <strong>SV <?php echo number_format($currentUserWalletBalance, 2); ?></strong>
                     </div>
 
                     <div class="form-group">
@@ -339,7 +377,7 @@ Assets newly marked as expired during operation: " . htmlspecialchars($purchaseD
                                         data-duration-months="<?php echo $type['duration_months']; ?>"
                                         data-name="<?php echo htmlspecialchars($type['name']); ?>"
                                         <?php echo (isset($_POST['asset_type_id']) && $_POST['asset_type_id'] == $type['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($type['name']); ?> (Price: ₦ <?php echo number_format($type['price'], 2); ?>)
+                                    <?php echo htmlspecialchars($type['name']); ?> (Price: SV <?php echo number_format($type['price'], 2); ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -347,8 +385,8 @@ Assets newly marked as expired during operation: " . htmlspecialchars($purchaseD
 
                     <div id="asset-info-box" class="asset-info-box" style="display: none;">
                         <p><strong>Selected:</strong> <span id="info-name" class="info-value"></span></p>
-                        <p><strong>Price:</strong> ₦ <span id="info-price" class="info-value"></span></p>
-                        <p><strong>Payout Cap (Generational):</strong> ₦ <span id="info-payout-cap" class="info-value"></span></p>
+                        <p><strong>Price: </strong><span id="info-price" class="info-value"></span></p>
+                        <p><strong>Payout Cap (Generational):</strong> <span id="info-payout-cap" class="info-value"></span></p>
                         <p><strong>Duration:</strong> <span id="info-duration-months" class="info-value"></span> months</p>
                     </div>
 
@@ -359,7 +397,7 @@ Assets newly marked as expired during operation: " . htmlspecialchars($purchaseD
 
                     <div class="form-group">
                         <label>Total Cost</label>
-                        <input type="text" id="total_cost" class="form-input" value="₦ 0.00" readonly style="font-weight: bold; background-color: var(--color-surface); border: 1px dashed var(--color-border);">
+                        <input type="text" id="total_cost" class="form-input" value="SV 0.00" readonly style="font-weight: bold; background-color: var(--color-surface); border: 1px dashed var(--color-border);">
                     </div>
 
                     <button type="button" id="proceedToConfirmation" class="btn btn-primary btn-full-width">Review Purchase</button>
@@ -403,119 +441,210 @@ Assets newly marked as expired during operation: " . htmlspecialchars($purchaseD
         </div>
     </main>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const assetSelect = document.getElementById('asset_type_id');
-        const quantityInput = document.getElementById('quantity');
-        const totalCostDisplay = document.getElementById('total_cost');
-        const assetInfoBox = document.getElementById('asset-info-box');
+<!-- Purchase Animation Modal -->
+<div class="purchase-modal-overlay" id="purchaseModal">
+    <div class="purchase-modal-content">
+        <!-- Processing State -->
+        <div class="modal-state" id="processingState">
+            <div class="processing-animation">
+                <div class="spinner"></div>
+            </div>
+            <h3 class="modal-title">Processing Purchase</h3>
+            <p class="modal-text">Please wait while we securely process your transaction.</p>
+        </div>
+        <!-- Success State -->
+        <div class="modal-state" id="successState">
+            <div class="success-animation">
+                <svg class="success-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="checkmark" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                </svg>
+            </div>
+            <h3 class="modal-title">Purchase Successful!</h3>
+            <p class="modal-text">Your assets have been added to your portfolio.</p>
+            <div class="modal-info">
+                <div class="info-item">
+                    <span class="label">Asset Purchased:</span>
+                    <span class="value" id="purchased-asset-name"></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Quantity:</span>
+                    <span class="value" id="purchased-quantity"></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Total Cost:</span>
+                    <span class="value" id="purchased-total-cost"></span>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-full-width close-modal-btn">Done</button>
+        </div>
+        <!-- Error State -->
+        <div class="modal-state" id="errorState">
+            <div class="error-animation">
+                <svg class="error-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="x-mark__circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="x-mark" fill="none" d="M16 16 36 36 M36 16 16 36"/>
+                </svg>
+            </div>
+            <h3 class="modal-title">Purchase Failed</h3>
+            <p class="modal-text" id="error-message"></p>
+            <button class="btn btn-primary btn-full-width close-modal-btn">Try Again</button>
+        </div>
+    </div>
+</div>
 
-        // Info box elements
-        const infoName = document.getElementById('info-name');
-        const infoPrice = document.getElementById('info-price');
-        const infoPayoutCap = document.getElementById('info-payout-cap');
-        const infoDuration = document.getElementById('info-duration-months');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const purchaseModal = document.getElementById('purchaseModal');
+    const processingState = document.getElementById('processingState');
+    const successState = document.getElementById('successState');
+    const errorState = document.getElementById('errorState');
+    const successSound = new Audio('../assets/sound/new-notification-07-210334.mp3');
+    successSound.preload = 'auto';
 
-        // Step handling elements
-        const form = document.getElementById('buyAssetForm');
-        const step1Selection = document.getElementById('step-1-selection');
-        const step2Confirmation = document.getElementById('step-2-confirmation');
-        const proceedButton = document.getElementById('proceedToConfirmation');
-        const backButton = document.getElementById('backToSelection');
+    const purchaseStatus = <?php echo json_encode($purchaseStatus); ?>;
 
-        // Confirmation screen elements
-        const confirmAssetName = document.getElementById('confirm-asset-name');
-        const confirmQuantity = document.getElementById('confirm-quantity');
-        const confirmUnitPrice = document.getElementById('confirm-unit-price');
-        const confirmTotalCost = document.getElementById('confirm-total-cost');
-        const confirmWalletBefore = document.getElementById('confirm-wallet-before');
-        const confirmWalletAfter = document.getElementById('confirm-wallet-after');
+    if (purchaseStatus) {
+        processingState.classList.add('active');
+        successState.classList.remove('active');
+        errorState.classList.remove('active');
+        purchaseModal.classList.add('visible');
 
-        const currentUserBalance = parseFloat(<?php echo json_encode($currentUserWalletBalance); ?>);
-        const preselectedAssetId = <?php echo json_encode($preselectedAssetTypeId); ?>;
+        setTimeout(() => {
+            processingState.classList.remove('active');
 
-        function formatCurrency(amount) {
-            return '₦ ' + parseFloat(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
+            if (purchaseStatus === 'success') {
+                const details = <?php echo json_encode($purchaseDetails); ?>;
+                document.getElementById('purchased-asset-name').textContent = details.asset_name;
+                document.getElementById('purchased-quantity').textContent = details.quantity;
+                document.getElementById('purchased-total-cost').textContent = "SV " + parseFloat(details.total_cost).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                successState.classList.add('active');
 
-        function updateAssetInfo() {
-            const selectedOption = assetSelect.options[assetSelect.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                assetInfoBox.style.display = 'block';
-                infoName.textContent = selectedOption.dataset.name;
-                infoPrice.textContent = formatCurrency(selectedOption.dataset.price);
-                infoPayoutCap.textContent = formatCurrency(selectedOption.dataset.payoutCap);
-                const duration = parseInt(selectedOption.dataset.durationMonths);
-                infoDuration.textContent = duration > 0 ? duration : 'Unlimited';
-            } else {
-                assetInfoBox.style.display = 'none';
+                if (window.navigator && window.navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+                successSound.play().catch(e => console.error("Sound play failed:", e));
+
+            } else if (purchaseStatus === 'error') {
+                const errorMessage = <?php echo json_encode($modalMessage); ?>;
+                document.getElementById('error-message').textContent = errorMessage;
+                errorState.classList.add('active');
             }
-            updateTotalCost();
-        }
+        }, 2500);
+    }
 
-        function updateTotalCost() {
-            const selectedOption = assetSelect.options[assetSelect.selectedIndex];
-            const quantity = parseInt(quantityInput.value) || 0;
-            if (selectedOption && selectedOption.value && quantity > 0) {
-                const price = parseFloat(selectedOption.dataset.price);
-                totalCostDisplay.value = formatCurrency(price * quantity);
-            } else {
-                totalCostDisplay.value = formatCurrency(0);
-            }
-        }
-
-        assetSelect.addEventListener('change', updateAssetInfo);
-        quantityInput.addEventListener('input', updateTotalCost);
-
-        proceedButton.addEventListener('click', () => {
-            const selectedOption = assetSelect.options[assetSelect.selectedIndex];
-            const quantity = parseInt(quantityInput.value);
-
-            if (!selectedOption || !selectedOption.value) {
-                alert('Please select an asset type.');
-                return;
-            }
-            if (isNaN(quantity) || quantity < 1) {
-                alert('Please enter a valid quantity (minimum 1).');
-                return;
-            }
-
-            const price = parseFloat(selectedOption.dataset.price);
-            const totalCost = price * quantity;
-
-            if (currentUserBalance < totalCost) {
-                 alert('Insufficient wallet balance to proceed. Required: ' + formatCurrency(totalCost) + ', Available: ' + formatCurrency(currentUserBalance));
-                 return;
-            }
-
-            confirmAssetName.textContent = selectedOption.dataset.name;
-            confirmQuantity.textContent = quantity;
-            confirmUnitPrice.textContent = formatCurrency(price);
-            confirmTotalCost.textContent = formatCurrency(totalCost);
-            confirmWalletBefore.textContent = formatCurrency(currentUserBalance);
-            confirmWalletAfter.textContent = formatCurrency(currentUserBalance - totalCost);
-
-            step1Selection.style.display = 'none';
-            step2Confirmation.style.display = 'block';
+    document.querySelectorAll('.close-modal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            purchaseModal.classList.remove('visible');
         });
-
-        backButton.addEventListener('click', () => {
-            step1Selection.style.display = 'block';
-            step2Confirmation.style.display = 'none';
-        });
-
-        // Initialize on page load (if form was submitted and reloaded with errors)
-        if (preselectedAssetId) {
-            assetSelect.value = preselectedAssetId;
-        }
-        updateAssetInfo();
-        // Check if there's a message indicating a completed transaction, then hide the form.
-        <?php if ($actionMessage && ($messageType === 'success' || $messageType === 'error') && $purchaseDetailsLog): ?>
-            step1Selection.style.display = 'none';
-            step2Confirmation.style.display = 'none';
-        <?php endif; ?>
     });
-    </script>
+
+    // --- Existing form logic ---
+    const assetSelect = document.getElementById('asset_type_id');
+    const quantityInput = document.getElementById('quantity');
+    const totalCostDisplay = document.getElementById('total_cost');
+    const assetInfoBox = document.getElementById('asset-info-box');
+
+    // Info box elements
+    const infoName = document.getElementById('info-name');
+    const infoPrice = document.getElementById('info-price');
+    const infoPayoutCap = document.getElementById('info-payout-cap');
+    const infoDuration = document.getElementById('info-duration-months');
+
+    // Step handling elements
+    const form = document.getElementById('buyAssetForm');
+    const step1Selection = document.getElementById('step-1-selection');
+    const step2Confirmation = document.getElementById('step-2-confirmation');
+    const proceedButton = document.getElementById('proceedToConfirmation');
+    const backButton = document.getElementById('backToSelection');
+
+    // Confirmation screen elements
+    const confirmAssetName = document.getElementById('confirm-asset-name');
+    const confirmQuantity = document.getElementById('confirm-quantity');
+    const confirmUnitPrice = document.getElementById('confirm-unit-price');
+    const confirmTotalCost = document.getElementById('confirm-total-cost');
+    const confirmWalletBefore = document.getElementById('confirm-wallet-before');
+    const confirmWalletAfter = document.getElementById('confirm-wallet-after');
+
+    const currentUserBalance = parseFloat(<?php echo json_encode($currentUserWalletBalance); ?>);
+    const preselectedAssetId = <?php echo json_encode($preselectedAssetTypeId); ?>;
+
+    function formatCurrency(amount) {
+        return 'SV' + parseFloat(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function updateAssetInfo() {
+        const selectedOption = assetSelect.options[assetSelect.selectedIndex];
+        if (selectedOption && selectedOption.value) {
+            assetInfoBox.style.display = 'block';
+            infoName.textContent = selectedOption.dataset.name;
+            infoPrice.textContent = formatCurrency(selectedOption.dataset.price);
+            infoPayoutCap.textContent = formatCurrency(selectedOption.dataset.payoutCap);
+            const duration = parseInt(selectedOption.dataset.durationMonths);
+            infoDuration.textContent = duration > 0 ? duration + ' months' : 'Unlimited';
+        } else {
+            assetInfoBox.style.display = 'none';
+        }
+        updateTotalCost();
+    }
+
+    function updateTotalCost() {
+        const selectedOption = assetSelect.options[assetSelect.selectedIndex];
+        const quantity = parseInt(quantityInput.value) || 0;
+        if (selectedOption && selectedOption.value && quantity > 0) {
+            const price = parseFloat(selectedOption.dataset.price);
+            totalCostDisplay.value = formatCurrency(price * quantity);
+        } else {
+            totalCostDisplay.value = formatCurrency(0);
+        }
+    }
+
+    assetSelect.addEventListener('change', updateAssetInfo);
+    quantityInput.addEventListener('input', updateTotalCost);
+
+    proceedButton.addEventListener('click', () => {
+        const selectedOption = assetSelect.options[assetSelect.selectedIndex];
+        const quantity = parseInt(quantityInput.value);
+
+        if (!selectedOption || !selectedOption.value) {
+            alert('Please select an asset type.');
+            return;
+        }
+        if (isNaN(quantity) || quantity < 1) {
+            alert('Please enter a valid quantity (minimum 1).');
+            return;
+        }
+
+        const price = parseFloat(selectedOption.dataset.price);
+        const totalCost = price * quantity;
+
+        if (currentUserBalance < totalCost) {
+             alert('Insufficient wallet balance to proceed. Required: ' + formatCurrency(totalCost) + ', Available: ' + formatCurrency(currentUserBalance));
+             return;
+        }
+
+        confirmAssetName.textContent = selectedOption.dataset.name;
+        confirmQuantity.textContent = quantity;
+        confirmUnitPrice.textContent = formatCurrency(price);
+        confirmTotalCost.textContent = formatCurrency(totalCost);
+        confirmWalletBefore.textContent = formatCurrency(currentUserBalance);
+        confirmWalletAfter.textContent = formatCurrency(currentUserBalance - totalCost);
+
+        step1Selection.style.display = 'none';
+        step2Confirmation.style.display = 'block';
+    });
+
+    backButton.addEventListener('click', () => {
+        step1Selection.style.display = 'block';
+        step2Confirmation.style.display = 'none';
+    });
+
+    if (preselectedAssetId) {
+        assetSelect.value = preselectedAssetId;
+    }
+    updateAssetInfo();
+});
+</script>
 
 <?php
 // 5. INCLUDE FOOTER TEMPLATE

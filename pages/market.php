@@ -259,7 +259,7 @@
             <div class="stock-info">
               <p class="name"><?php echo htmlspecialchars($asset['name']); ?></p>
               <p class="category"><?php echo $asset['category'] ?? 'General'; ?></p>
-              <p class="price">₦<?php echo number_format($asset['price'], 2); ?></p>
+              <p class="price">SV<?php echo number_format($asset['price'], 2); ?></p>
             </div>
           </a>
         <?php endforeach; ?>

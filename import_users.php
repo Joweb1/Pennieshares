@@ -1,6 +1,6 @@
 <?php
 // Define paths
-$old_db_path = __DIR__ . '/database/mydatabase.sqlite.bak';
+$old_db_path = __DIR__ . '/database/mydatabasebak.sqlite';
 $new_db_path = __DIR__ . '/database/mydatabase.sqlite';
 
 try {

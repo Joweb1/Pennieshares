@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: ['Company Profit', 'Reservation Fund', 'Total Generational Paid', 'Total Shared Paid'],
                 datasets: [{
-                    label: 'Amount (₦)',
+                    label: 'Amount (SV)',
                     data: [<?php echo $overallIncomeStats['company_profit']; ?>, <?php echo $overallIncomeStats['reservation_fund']; ?>, <?php echo $overallIncomeStats['total_generational_paid']; ?>, <?php echo $overallIncomeStats['total_shared_paid']; ?>],
                     backgroundColor: ['#2ecc71', '#f1c40f', '#3498db', '#9b59b6']
                 }]

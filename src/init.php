@@ -16,5 +16,4 @@ function countReferrals($partner_code) {
 }
 
 $referral_count = countReferrals($partner_code);
-?>rals($partner_code);
 ?>
