@@ -125,26 +125,7 @@ try {
     // --- Initial Data Seeding ---
     $pdo->exec("INSERT OR IGNORE INTO company_funds (id, total_company_profit, total_reservation_fund, last_updated) VALUES (1, 0.00, 0.00, datetime('now'))");
 
-    $stmt = $pdo->query("SELECT COUNT(*) FROM asset_types");
-    if ($stmt->fetchColumn() == 0) {
-        $base_price = 20.00;
-        $price_increment = 1.50;
-        $base_cap = 140.00;
-        $cap_increment = 10.00;
-        $base_duration_months = 3;
-        $duration_increment = 1;
-        define('FIXED_ALLOCATIONS_TOTAL_FOR_SEED', 18);
-
-        for ($i = 1; $i <= 10; $i++) {
-            $name = "Asset Type " . $i;
-            $price = $base_price + (($i - 1) * $price_increment);
-            $payout_cap = $base_cap + (($i - 1) * $cap_increment);
-            $duration_months = ($i == 10) ? 0 : $base_duration_months + (($i - 1) * $duration_increment);
-            $reservation_contribution = $price - FIXED_ALLOCATIONS_TOTAL_FOR_SEED;
-            $stmt = $pdo->prepare("INSERT INTO asset_types (id, name, price, payout_cap, duration_months, reservation_fund_contribution) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$i, $name, $price, $payout_cap, $duration_months, $reservation_contribution]);
-        }
-    }
+    
     
 } catch (PDOException $e) {
     die("Database connection failed: " . $e->getMessage());
