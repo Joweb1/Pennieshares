@@ -417,11 +417,10 @@ function markAssetCompleted($pdo, $assetId) {
 
 function deleteAssetType($pdo, $assetTypeId) {
     try {
-        // First, set any assets linked to this type to NULL or delete them
-        // Depending on desired behavior, you might want to delete associated assets
-        // For now, let's assume setting asset_type_id to NULL for associated assets
-        $pdo->prepare("UPDATE assets SET asset_type_id = NULL WHERE asset_type_id = ?")->execute([$assetTypeId]);
+        // Delete all assets associated with this asset type
+        $pdo->prepare("DELETE FROM assets WHERE asset_type_id = ?")->execute([$assetTypeId]);
 
+        // Now delete the asset type itself
         $stmt = $pdo->prepare("DELETE FROM asset_types WHERE id = ?");
         $stmt->execute([$assetTypeId]);
         return $stmt->rowCount() > 0;

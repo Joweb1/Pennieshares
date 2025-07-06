@@ -74,8 +74,8 @@ try {
         created_at TEXT NOT NULL,
         expires_at TEXT,
         completed_at TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(asset_type_id) REFERENCES asset_types(id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(asset_type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
         FOREIGN KEY(parent_id) REFERENCES assets(id) ON DELETE SET NULL
     );");
     
@@ -89,8 +89,8 @@ try {
         amount DECIMAL(10, 2) NOT NULL,
         payout_type TEXT NOT NULL, 
         created_at TEXT NOT NULL,
-        FOREIGN KEY(receiving_asset_id) REFERENCES assets(id),
-        FOREIGN KEY(triggering_asset_id) REFERENCES assets(id)
+        FOREIGN KEY(receiving_asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+        FOREIGN KEY(triggering_asset_id) REFERENCES assets(id) ON DELETE CASCADE
     );");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS company_funds (
