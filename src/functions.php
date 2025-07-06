@@ -468,4 +468,36 @@ function deletePaymentProof($pdo, $proofId) {
     }
 }
 
+function getPaginatedUsers($pdo, $limit, $offset, $searchQuery = '') {
+    $sql = "SELECT * FROM users";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE username LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $sql .= " ORDER BY id ASC LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getTotalUserCount($pdo, $searchQuery = '') {
+    $sql = "SELECT COUNT(*) FROM users";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE username LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchColumn();
+}
+
 ?>

@@ -25,6 +25,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
     <title>Pennieshares</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
 
     <style>
@@ -446,12 +447,10 @@
           <a href="wallet"><span class="material-icons-outlined">account_balance_wallet</span></a>
           <a href="market"><span class="material-icons-outlined">storefront</span></a>
           <a href="shares"><span class="material-icons-outlined">inventory</span></a>
-          <a href="transactions"><span class="material-icons-outlined">receipt_long</span></a>
           <a href="transfer"><span class="material-icons-outlined">swap_horiz</span></a>
           <a href="partner"><span class="material-icons-outlined">handshake</span></a>
           <a href="find_broker"><span class="material-icons-outlined">search</span></a>
           <a href="profile_view"><span class="material-icons-outlined">person</span></a>
-          <a href="settings"><span class="material-icons-outlined">settings</span></a>
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <a href="admin"><span class="material-icons-outlined">admin_panel_settings</span></a>
           <a href="admin_verify"><span class="material-icons-outlined">verified_user</span></a>

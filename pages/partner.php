@@ -495,17 +495,6 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
     }
     }
     
-    @media (min-width: 769px) {
-    #burger-menu, .logo-mobile {
-    display: none;
-    }
-    .sidebar {
-    transform: translateX(0);
-    }
-    .page-container {
-    padding-left: 260px;
-    }
-    }
 </style>
 <div class="content-wrapper">
     <div class="page-title">

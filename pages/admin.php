@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/functions.php';
+require_once __DIR__ . '/../src/assets_functions.php';
 check_auth();
 
 // Admin Access Check
@@ -13,8 +14,19 @@ $purchaseDetails = null;
 $db = $pdo; 
 
 $dashboardUser = null;
-$userAssets = [];
 $userPayoutsList = [];
+
+// Pagination and Search settings for Users Table
+$users_per_page = 20;
+$current_user_page = isset($_GET['user_page']) && is_numeric($_GET['user_page']) ? (int)$_GET['user_page'] : 1;
+$user_offset = ($current_user_page - 1) * $users_per_page;
+$user_search_query = trim($_GET['user_search'] ?? '');
+
+// Pagination and Search settings for Assets Table
+$assets_per_page = 20;
+$current_asset_page = isset($_GET['asset_page']) && is_numeric($_GET['asset_page']) ? (int)$_GET['asset_page'] : 1;
+$asset_offset = ($current_asset_page - 1) * $assets_per_page;
+$asset_search_query = trim($_GET['asset_search'] ?? '');
 
 // Handle Buy Asset form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'buy_asset') {
@@ -29,14 +41,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif ($quantity === false || $quantity === null) {
         $actionMessage = "Error: Invalid quantity.";
     } else {
-        $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt = $db->prepare("SELECT id, wallet_balance FROM users WHERE username = ?");
         $stmt->execute([$userName]);
-        $userId = $stmt->fetchColumn();
-        if (!$userId) {
-            $actionMessage .= "User '{$userName}' not found. Asset purchase failed.";
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            $actionMessage .= "Error: User '{$userName}' not found. Asset purchase failed.";
         } else {
-            $actionMessage .= "User '{$userName}' found. ";
-            $purchaseDetails = buyAsset($userId, $assetTypeId, $quantity);
+            $userId = $user['id'];
+            $userWalletBalance = $user['wallet_balance'];
+
+            $assetTypeStmt = $db->prepare("SELECT price FROM asset_types WHERE id = ?");
+            $assetTypeStmt->execute([$assetTypeId]);
+            $assetTypePrice = $assetTypeStmt->fetchColumn();
+
+            if (!$assetTypePrice) {
+                $actionMessage .= "Error: Asset type not found. Asset purchase failed.";
+            } else {
+                $totalCost = $assetTypePrice * $quantity;
+
+                if ($userWalletBalance < $totalCost) {
+                    $actionMessage .= "Error: User '{$userName}' has insufficient funds (₦" . number_format($userWalletBalance, 2) . ") to purchase assets costing ₦" . number_format($totalCost, 2) . ".";
+                } else {
+                    // Debit user wallet first
+                    $debitSuccess = debitUserWallet($pdo, $userId, $totalCost, "Admin Asset Purchase: {$quantity} x Asset Type {$assetTypeId}");
+
+                    if ($debitSuccess) {
+                        $purchaseDetails = buyAsset($pdo, $userId, $assetTypeId, $quantity);
+                        $actionMessage .= "User '{$userName}' found. Assets purchased successfully. Wallet debited by ₦" . number_format($totalCost, 2) . ".";
+                    } else {
+                        $actionMessage .= "Error: Failed to debit user '{$userName}' wallet. Asset purchase failed.";
+                    }
+                }
+            }
         }
     }
 }
@@ -253,17 +290,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 
 // Fetch data for display
-$users = $db->query("SELECT * FROM users ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+$users = getPaginatedUsers($db, $users_per_page, $user_offset, $user_search_query);
+$total_users = getTotalUserCount($db, $user_search_query);
+$total_user_pages = ceil($total_users / $users_per_page);
+
 $assetTypes = getAssetTypes($db);
 $companyFunds = getCompanyFunds($db);
 
-$assetsQuery = "SELECT a.*, u.username as username, at.name as asset_type_name, at.payout_cap as type_payout_cap,
-                (a.total_generational_received + a.total_shared_received) as total_earned
-                FROM assets a 
-                JOIN users u ON a.user_id = u.id 
-                JOIN asset_types at ON a.asset_type_id = at.id
-                ORDER BY a.id ASC";
-$assets = $db->query($assetsQuery)->fetchAll(PDO::FETCH_ASSOC);
+$assets = getPaginatedAssets($db, $assets_per_page, $asset_offset, $asset_search_query);
+$total_assets = getTotalAssetCount($db, $asset_search_query);
+$total_asset_pages = ceil($total_assets / $assets_per_page);
 
 $payoutsQuery = "SELECT p.*, 
                 ra.id as receiving_asset_display_id, ru.username as receiving_username,
@@ -273,7 +309,7 @@ $payoutsQuery = "SELECT p.*,
                 LEFT JOIN users ru ON ra.user_id = ru.id
                 JOIN assets ta ON p.triggering_asset_id = ta.id
                 JOIN users tu ON ta.user_id = tu.id
-                ORDER BY p.id ASC";
+                ORDER BY p.id DESC LIMIT 10";
 $payouts = $db->query($payoutsQuery)->fetchAll(PDO::FETCH_ASSOC);
 $now_for_display = date('Y-m-d H:i:s');
 
@@ -281,53 +317,349 @@ $now_for_display = date('Y-m-d H:i:s');
 $overallIncomeStats = getOverallIncomeStats($db);
 $assetStatusDistribution = getAssetStatusDistribution($db);
 
+$pageTitle = "Admin Panel";
+include __DIR__ . '/../assets/template/intro-template.php';
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Panel - Asset System</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; background-color: #f4f7f6; color: #333; }
-        .container { max-width: 1300px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
-        h1, h2, h3, h4 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 30px; }
-        h1 { text-align: center; margin-bottom: 30px; font-size: 2.2em;}
-        table { border-collapse: collapse; width: 100%; font-size: 0.85em; margin-bottom: 20px; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
-        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: middle; }
-        th { background-color: #3498db; color: white; font-weight: bold; }
-        tr:nth-child(even) { background-color: #ecf0f1; }
-        .status-completed { background-color: #d4efdf !important; color: #1e8449; }
-        .status-expired { background-color: #fdedec !important; color: #c0392b; }
-        .status-active { color: #27ae60; }
-        .message { padding: 15px; margin-bottom:20px; border-radius: 5px; border-left: 5px solid; }
-        .message-success { background-color: #e8f8f5; color: #1abc9c; border-left-color: #1abc9c;}
-        .message-error { background-color: #fdedec; color: #e74c3c; border-left-color: #e74c3c;}
-        .details-box { background-color: #e9ecef; border: 1px solid #ced4da; padding: 10px; margin-top:10px; font-size:0.85em; border-radius: 5px; max-height: 200px; overflow-y:auto; }
-        .form-section { background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 30px; box-shadow: 0 2px 3px rgba(0,0,0,0.05); }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="text"], input[type="number"], select { width: calc(100% - 22px); padding: 10px; margin-bottom:15px; border: 1px solid #ccc; border-radius:4px; box-sizing: border-box; }
-        button { padding: 10px 18px; background-color: #3498db; color: white; border:none; border-radius:4px; cursor:pointer; font-size: 1em; transition: background-color 0.3s ease; }
-        button:hover { background-color: #2980b9;}
-        .info-bar { display: flex; flex-wrap: wrap; justify-content: space-around; background-color: #2c3e50; color: white; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
-        .info-bar div { text-align: center; margin: 5px 10px; }
-        .info-bar h4 { margin-top: 0; margin-bottom: 5px; font-size: 0.8em; opacity: 0.8; text-transform: uppercase; }
-        .info-bar p { margin: 0; font-size: 1.3em; font-weight: bold; }
-        .chart-container { width: 100%; max-width: 450px; margin: 10px auto; }
-        .flex-container { display: flex; flex-wrap: wrap; justify-content: space-around; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>Admin Panel: Asset Management</h1>
+
+<style>
+    /* General Styling */
+    .admin-container {
+        width: 95vw; /* Increased max-width for wider desktop view */
+        margin: 2rem auto;
+        margin-left:-9rem;
+        padding: 1rem; /* Reduced padding for wider content area */
+        background-color: var(--bg-secondary);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+        color: var(--text-primary);
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 2.2rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, var(--accent-color), #60efff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .message {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        text-align: center;
+        animation: slideIn 0.4s ease-out;
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .info-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .info-bar div {
+        text-align: center;
+        margin: 5px 10px;
+    }
+    .info-bar h4 {
+        margin-top: 0;
+        margin-bottom: 5px;
+        font-size: 0.8em;
+        opacity: 0.8;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+    .info-bar p {
+        margin: 0;
+        font-size: 1.3em;
+        font-weight: bold;
+    }
+
+    .charts-section {
+        margin-bottom: 2rem;
+        background-color: var(--bg-tertiary);
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .charts-section h3 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .flex-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        gap: 1.5rem;
+    }
+    .chart-container {
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
+        background-color: var(--bg-secondary);
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .form-section {
+        background-color: var(--bg-tertiary);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .form-section h2 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .form-section form div {
+        margin-bottom: 1rem;
+    }
+    .form-section label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    .form-section input[type="text"],
+    .form-section input[type="number"],
+    .form-section input[type="email"],
+    .form-section input[type="password"],
+    .form-section select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        box-sizing: border-box;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-section input[type="text"]:focus,
+    .form-section input[type="number"]:focus,
+    .form-section input[type="email"]:focus,
+    .form-section input[type="password"]:focus,
+    .form-section select:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(12, 127, 242, 0.2);
+    }
+    .form-section button[type="submit"] {
+        display: block;
+        width: 100%;
+        padding: 12px 20px;
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.1em;
+        font-weight: 700;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    .form-section button[type="submit"]:hover {
+        background-color: #0a69c4;
+        transform: translateY(-2px);
+    }
+
+    /* Table Styling */
+    .table-responsive {
+        overflow-x: auto;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: 8px;
+        overflow: hidden; /* Ensures rounded corners apply to table */
+    }
+    th, td {
+        border: 1px solid var(--border-color);
+        padding: 12px 15px;
+        text-align: left;
+        vertical-align: middle;
+        color: var(--text-secondary);
+    }
+    th {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.9em;
+    }
+    tr:nth-child(even) {
+        background-color: var(--bg-tertiary);
+    }
+    tr:hover {
+        background-color: var(--border-color);
+    }
+    .status-completed { background-color: #d4efdf !important; color: #1e8449; }
+    .status-expired { background-color: #fdedec !important; color: #c0392b; }
+    .status-active { color: #27ae60; }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .admin-container {
+            padding: 1rem;
+            margin-left:auto;
+        }
+        .info-bar {
+            flex-direction: column;
+            align-items: center;
+        }
+        .chart-container {
+            max-width: 100%;
+        }
+        table, thead, tbody, th, td, tr {
+            display: block;
+        }
+        thead tr {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+        }
+        tr {
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+            border-radius: 8px;
+        }
+        td {
+            border: none;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            padding-left: 50%;
+            text-align: right;
+        }
+        td:before {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            width: 45%;
+            padding-right: 10px;
+            white-space: nowrap;
+            content: attr(data-label);
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: left;
+        }
+    }
+
+    /* Search Bar Styles */
+    .search-bar {
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 10px;
+    }
+
+    .search-bar input[type="text"] {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    .search-bar button {
+        padding: 10px 15px;
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .search-bar button:hover {
+        background-color: #0a69c4;
+    }
+
+    /* Pagination Styles */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        margin-top: 1.5rem;
+        gap: 5px;
+    }
+
+    .pagination .page-link {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: background-color 0.3s ease;
+    }
+
+    .pagination .page-link:hover {
+        background-color: var(--bg-tertiary);
+    }
+
+    .pagination .page-link.active {
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+        border-color: var(--accent-color);
+    }
+</style>
+
+<div class="admin-container">
+    <h1>Admin Dashboard</h1>
 
     <?php if ($actionMessage || ($purchaseDetails && isset($purchaseDetails['summary']))): ?>
-        <div class="message <?php echo strpos(strtolower($actionMessage), 'error') !== false || (isset($purchaseDetails['purchases'][0]['error'])) ? 'message-error' : 'message-success'; ?>">
+        <div class="message <?php echo strpos(strtolower($actionMessage), 'error') !== false || (isset($purchaseDetails['purchases'][0]['error'])) ? 'error' : 'success'; ?>">
             <?php echo htmlspecialchars($actionMessage); ?>
             <?php if ($purchaseDetails && isset($purchaseDetails['summary'])):
                 foreach($purchaseDetails['summary'] as $summaryLine) {
                     echo "<p>" . htmlspecialchars($summaryLine) . "</p>";
                 }
             endif; ?>
+            <?php if ($purchaseDetails && isset($purchaseDetails['purchases'])): ?>
+                <h4>Individual Purchase Details:</h4>
+                <ul>
+                    <?php foreach($purchaseDetails['purchases'] as $purchase) : ?>
+                        <li><?php echo htmlspecialchars($purchase['message']); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
     
@@ -480,81 +812,113 @@ $assetStatusDistribution = getAssetStatusDistribution($db);
         </form>
     </div>
 
-    
-
-    
-
     <h2>All Assets</h2>
-    <table>
-        <thead><tr><th>ID</th><th>Owner</th><th>Type</th><th>Image</th><th>Parent</th><th>Gen.</th><th>Children</th><th>Progress to Cap</th><th>Total Earned</th><th>Status</th><th>Created</th><th>Expires</th></tr></thead>
-        <tbody>
-        <?php foreach ($assets as $a):
-            $total_earned_for_cap = $a['total_generational_received'] + $a['total_shared_received'];
-            $percentage = ($a['type_payout_cap'] > 0) ? ($total_earned_for_cap / $a['type_payout_cap']) * 100 : 0;
-            $percentage = min(100, $percentage);
-            $bar_class = 'progress-bar';
-            if ($percentage > 75) $bar_class .= ' orange';
-            if ($percentage >= 100 || $a['is_completed']) $percentage = 100;
-            if ($a['is_manually_expired']) $bar_class = 'progress-bar red';
-            $assetBranding = getAssetBranding($a['asset_type_id']);
-        ?>
-            <tr class="<?php echo $a['is_completed'] ? 'status-completed' : ($a['is_manually_expired'] ? 'status-expired' : ''); ?>">
-                <td><?php echo $a['id']; ?></td>
-                <td><?php echo htmlspecialchars($a['username']); ?></td>
-                <td><?php echo htmlspecialchars($assetBranding['name']); ?></td>
-                <td>
-                    <?php if (!empty($assetBranding['image'])): ?>
-                        <img src="<?php echo htmlspecialchars($assetBranding['image']); ?>" alt="<?php echo htmlspecialchars($assetBranding['name']); ?>" style="width: 50px; height: 50px; object-fit: cover;">
-                    <?php else: ?>
-                        N/A
-                    <?php endif; ?>
-                </td>
-                <td><?php echo $a['parent_id'] ?: '-'; ?></td>
-                <td><?php echo $a['generation']; ?></td>
-                <td><?php echo $a['children_count']; ?>/3</td>
-                <td>
-                    ₦<?php echo number_format($total_earned_for_cap, 2); ?> / ₦<?php echo number_format($a['type_payout_cap'], 2); ?>
-                    <div class="progress-bar-container" title="<?php echo number_format($percentage, 1); ?>%">
-                        <div class="<?php echo $bar_class; ?>" style="width: <?php echo $percentage; ?>%;"><?php echo number_format($percentage, 0); ?>%</div>
-                    </div>
-                </td>
-                <td>₦<?php echo number_format($a['total_earned'], 2); ?></td>
-                <td><?php echo $a['is_completed'] ? 'Completed' : ($a['is_manually_expired'] ? 'Expired' : 'Active'); ?></td>
-                <td><?php echo $a['created_at']; ?></td>
-                <td><?php echo $a['expires_at'] ?: 'Unlimited'; ?></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="search-bar">
+        <form method="GET" action="admin">
+            <input type="hidden" name="user_page" value="<?php echo $current_user_page; ?>">
+            <input type="hidden" name="user_search" value="<?php echo htmlspecialchars($user_search_query); ?>">
+            <input type="text" name="asset_search" placeholder="Search by owner username..." value="<?php echo htmlspecialchars($asset_search_query); ?>">
+            <button type="submit">Search</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead><tr><th>ID</th><th>Owner</th><th>Type</th><th>Image</th><th>Parent</th><th>Gen.</th><th>Children</th><th>Progress to Cap</th><th>Total Earned</th><th>Status</th><th>Created</th><th>Expires</th></tr></thead>
+            <tbody>
+            <?php foreach ($assets as $a):
+                $total_earned_for_cap = $a['total_generational_received'] + $a['total_shared_received'];
+                $percentage = ($a['type_payout_cap'] > 0) ? ($total_earned_for_cap / $a['type_payout_cap']) * 100 : 0;
+                $percentage = min(100, $percentage);
+                $bar_class = 'progress-bar';
+                if ($percentage > 75) $bar_class .= ' orange';
+                if ($percentage >= 100 || $a['is_completed']) $percentage = 100;
+                if ($a['is_manually_expired']) $bar_class = 'progress-bar red';
+                $assetBranding = getAssetBranding($a['asset_type_id']);
+            ?>
+                <tr class="<?php echo $a['is_completed'] ? 'status-completed' : ($a['is_manually_expired'] ? 'status-expired' : ''); ?>">
+                    <td data-label="ID"><?php echo $a['id']; ?></td>
+                    <td data-label="Owner"><?php echo htmlspecialchars($a['username']); ?></td>
+                    <td data-label="Type"><?php echo htmlspecialchars($assetBranding['name']); ?></td>
+                    <td data-label="Image">
+                        <?php if (!empty($assetBranding['image'])): ?>
+                            <img src="<?php echo htmlspecialchars($assetBranding['image']); ?>" alt="<?php echo htmlspecialchars($assetBranding['name']); ?>" style="width: 50px; height: 50px; object-fit: cover;">
+                        <?php else: ?>
+                            N/A
+                        <?php endif; ?>
+                    </td>
+                    <td data-label="Parent"><?php echo $a['parent_id'] ?: '-'; ?></td>
+                    <td data-label="Gen."><?php echo $a['generation']; ?></td>
+                    <td data-label="Children"><?php echo $a['children_count']; ?>/3</td>
+                    <td data-label="Progress to Cap">
+                        ₦<?php echo number_format($total_earned_for_cap, 2); ?> / ₦<?php echo number_format($a['type_payout_cap'], 2); ?>
+                        <div class="progress-bar-container" title="<?php echo number_format($percentage, 1); ?>%">
+                            <div class="<?php echo $bar_class; ?>" style="width: <?php echo $percentage; ?>%;"><?php echo number_format($percentage, 0); ?>%</div>
+                        </div>
+                    </td>
+                    <td data-label="Total Earned">₦<?php echo number_format($a['total_earned'], 2); ?></td>
+                    <td data-label="Status"><?php echo $a['is_completed'] ? 'Completed' : ($a['is_manually_expired'] ? 'Expired' : 'Active'); ?></td>
+                    <td data-label="Created"><?php echo $a['created_at']; ?></td>
+                    <td data-label="Expires"><?php echo $a['expires_at'] ?: 'Unlimited'; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <div class="pagination">
+        <?php if ($total_asset_pages > 1): ?>
+            <?php for ($i = 1; $i <= $total_asset_pages; $i++): ?>
+                <a href="?asset_page=<?php echo $i; ?>&asset_search=<?php echo htmlspecialchars($asset_search_query); ?>&user_page=<?php echo $current_user_page; ?>&user_search=<?php echo htmlspecialchars($user_search_query); ?>" class="page-link <?php echo ($i == $current_asset_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+            <?php endfor; ?>
+        <?php endif; ?>
+    </div>
 
     <h2>All Users</h2>
-    <table><thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Wallet Balance</th><th>Is Admin?</th><th>Status</th></tr></thead><tbody>
-        <?php foreach ($users as $user): ?>
-            <tr>
-                <td><?php echo $user['id']; ?></td>
-                <td><?php echo htmlspecialchars($user['username']); ?></td>
-                <td><?php echo htmlspecialchars($user['fullname']); ?></td>
-                <td><?php echo htmlspecialchars($user['email']); ?></td>
-                <td>₦<?php echo number_format($user['wallet_balance'], 2); ?></td>
-                <td><?php echo $user['is_admin'] ? 'Yes' : 'No'; ?></td>
-                <td><?php echo $user['status'] == 2 ? 'Verified' : 'Not Verified'; ?></td>
-            </tr>
-        <?php endforeach; ?>
-    </tbody></table>
+    <div class="search-bar">
+        <form method="GET" action="admin">
+            <input type="hidden" name="asset_page" value="<?php echo $current_asset_page; ?>">
+            <input type="hidden" name="asset_search" value="<?php echo htmlspecialchars($asset_search_query); ?>">
+            <input type="text" name="user_search" placeholder="Search by username..." value="<?php echo htmlspecialchars($user_search_query); ?>">
+            <button type="submit">Search</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table><thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Wallet Balance</th><th>Is Admin?</th><th>Status</th></tr></thead><tbody>
+            <?php foreach ($users as $user): ?>
+                <tr>
+                    <td data-label="User ID"><?php echo $user['id']; ?></td>
+                    <td data-label="Username"><?php echo htmlspecialchars($user['username']); ?></td>
+                    <td data-label="Full Name"><?php echo htmlspecialchars($user['fullname']); ?></td>
+                    <td data-label="Email"><?php echo htmlspecialchars($user['email']); ?></td>
+                    <td data-label="Wallet Balance">₦<?php echo number_format($user['wallet_balance'], 2); ?></td>
+                    <td data-label="Is Admin?"><?php echo $user['is_admin'] ? 'Yes' : 'No'; ?></td>
+                    <td data-label="Status"><?php echo $user['status'] == 2 ? 'Verified' : 'Not Verified'; ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody></table>
+    </div>
+    <div class="pagination">
+        <?php if ($total_user_pages > 1): ?>
+            <?php for ($i = 1; $i <= $total_user_pages; $i++): ?>
+                <a href="?user_page=<?php echo $i; ?>&user_search=<?php echo htmlspecialchars($user_search_query); ?>&asset_page=<?php echo $current_asset_page; ?>&asset_search=<?php echo htmlspecialchars($asset_search_query); ?>" class="page-link <?php echo ($i == $current_user_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+            <?php endfor; ?>
+        <?php endif; ?>
+    </div>
 
     <h2>All Payouts</h2>
-     <table><thead><tr><th>ID</th><th>Destination</th><th>Triggering Asset (#User)</th><th>Amount</th><th>Type</th><th>Timestamp</th></tr></thead><tbody>
-        <?php foreach ($payouts as $p): ?>
-            <tr>
-                <td><?php echo $p['id']; ?></td>
-                <td><?php echo ($p['receiving_asset_id'] ? "Asset #{$p['receiving_asset_display_id']} (" . htmlspecialchars($p['receiving_username'] ?? 'N/A') . ")" : "Company " . ucfirst($p['company_fund_type'])); ?></td>
-                <td>#<?php echo $p['triggering_asset_display_id']; ?> (<?php echo htmlspecialchars($p['triggering_username']); ?>)</td>
-                <td>₦<?php echo number_format($p['amount'], 2); ?></td>
-                <td><?php echo htmlspecialchars(str_replace('_', ' ', ucfirst($p['payout_type']))); ?></td>
-                <td><?php echo $p['created_at']; ?></td>
-            </tr>
-        <?php endforeach; ?>
-    </tbody></table>
+    <div class="table-responsive">
+        <table><thead><tr><th>ID</th><th>Destination</th><th>Triggering Asset (#User)</th><th>Amount</th><th>Type</th><th>Timestamp</th></tr></thead><tbody>
+            <?php foreach ($payouts as $p): ?>
+                <tr>
+                    <td data-label="ID"><?php echo $p['id']; ?></td>
+                    <td data-label="Destination"><?php echo ($p['receiving_asset_id'] ? "Asset #{$p['receiving_asset_display_id']} (" . htmlspecialchars($p['receiving_username'] ?? 'N/A') . ")" : "Company " . ucfirst($p['company_fund_type'])); ?></td>
+                    <td data-label="Triggering Asset">#<?php echo $p['triggering_asset_display_id']; ?> (<?php echo htmlspecialchars($p['triggering_username']); ?>)</td>
+                    <td data-label="Amount">₦<?php echo number_format($p['amount'], 2); ?></td>
+                    <td data-label="Type"><?php echo htmlspecialchars(str_replace('_', ' ', ucfirst($p['payout_type']))); ?></td>
+                    <td data-label="Timestamp"><?php echo $p['created_at']; ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody></table>
+    </div>
 </div>
 
 <script>
@@ -566,10 +930,19 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: ['Company Profit', 'Reservation Fund', 'Total Generational Paid', 'Total Shared Paid'],
                 datasets: [{
-                    label: 'Amount (SV)',
-                    data: [<?php echo $overallIncomeStats['company_profit']; ?>, <?php echo $overallIncomeStats['reservation_fund']; ?>, <?php echo $overallIncomeStats['total_generational_paid']; ?>, <?php echo $overallIncomeStats['total_shared_paid']; ?>],
+                    label: 'Amount (₦)',
+                    data: [<?php echo json_encode($overallIncomeStats['total_company_profit'] ?? 0); ?>, <?php echo json_encode($overallIncomeStats['total_reservation_fund'] ?? 0); ?>, <?php echo json_encode($overallIncomeStats['total_generational_pot'] ?? 0); ?>, <?php echo json_encode($overallIncomeStats['total_shared_pot'] ?? 0); ?>],
                     backgroundColor: ['#2ecc71', '#f1c40f', '#3498db', '#9b59b6']
                 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
             }
         });
     }
@@ -582,9 +955,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 labels: ['Active', 'Completed', 'Expired'],
                 datasets: [{
                     label: 'Asset Statuses',
-                    data: [<?php echo $assetStatusDistribution['active_count'] ?? 0; ?>, <?php echo $assetStatusDistribution['completed_count'] ?? 0; ?>, <?php echo $assetStatusDistribution['expired_count'] ?? 0; ?>],
+                    data: [<?php echo json_encode($assetStatusDistribution['active_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['completed_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['expired_count'] ?? 0); ?>],
                     backgroundColor: ['#27ae60', '#3498db', '#e74c3c']
                 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
             }
         });
     }
@@ -617,5 +994,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-</body>
-</html>
+<?php include __DIR__ . '/../assets/template/end-template.php'; ?>

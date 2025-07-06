@@ -105,7 +105,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     .layout-content-container {
       display: flex;
       flex-direction: column;
-      max-width: 960px;
+      max-width: 1200px; /* Increased max-width for wider desktop view */
       width: 100%;
       margin: 0 auto;
       flex-grow: 1;
@@ -138,12 +138,15 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     
     /* Stats grid */
     .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      display: flex; /* Changed to flexbox */
+      flex-wrap: wrap; /* Allow items to wrap */
+      justify-content: space-between; /* Distribute items with space between them */
+      gap: 16px; /* Gap between items */
     }
     
     .stat-card {
+      flex: 1; /* Allow cards to grow and shrink */
+      min-width: 250px; /* Minimum width for cards before wrapping */
       padding: 24px;
       background-color: var(--card-bg-color);
       border-radius: 12px;

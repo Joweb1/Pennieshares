@@ -103,7 +103,7 @@ function getAncestorsForPayout($pdo, $childAssetId, $maxDepth = MAX_GENERATIONS_
 
 // --- buyAsset Function (Updated with expiration check and logging) ---
 function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
-    global $pdo;
+    error_log("buyAsset called: userId={$userId}, assetTypeId={$assetTypeId}, numAssetsToBuy={$numAssetsToBuy}");
     $overallResults = ['purchases' => [], 'summary' => [], 'expired_check_count' => 0];
     $now = date('Y-m-d H:i:s');
 
@@ -429,6 +429,42 @@ function deleteAssetType($pdo, $assetTypeId) {
         error_log("Error deleting asset type: " . $e->getMessage());
         return false;
     }
+}
+
+function getPaginatedAssets($pdo, $limit, $offset, $searchQuery = '') {
+    $sql = "SELECT a.*, u.username as username, at.name as asset_type_name, at.payout_cap as type_payout_cap,
+                (a.total_generational_received + a.total_shared_received) as total_earned
+                FROM assets a 
+                JOIN users u ON a.user_id = u.id 
+                JOIN asset_types at ON a.asset_type_id = at.id";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE u.username LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $sql .= " ORDER BY a.id ASC LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getTotalAssetCount($pdo, $searchQuery = '') {
+    $sql = "SELECT COUNT(*) FROM assets a JOIN users u ON a.user_id = u.id";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE u.username LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchColumn();
 }
 
 ?>
