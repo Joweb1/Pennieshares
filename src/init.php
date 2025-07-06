@@ -16,4 +16,8 @@ function countReferrals($partner_code) {
 }
 
 $referral_count = countReferrals($partner_code);
+
+// Check and send daily login email
+checkAndSendDailyLoginEmail($pdo, $user['id']);
+
 ?>

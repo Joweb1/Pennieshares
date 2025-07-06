@@ -31,6 +31,9 @@ try {
     if (!in_array('is_admin', $user_columns)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
     }
+    if (!in_array('last_login_email_sent', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN last_login_email_sent DATE");
+    }
 
     // --- Create Payment Proofs Table ---
     $pdo->exec("CREATE TABLE IF NOT EXISTS payment_proofs (

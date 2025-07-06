@@ -26,6 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([':proof_id' => $proofId]);
 
                 $message = "User verified and proof marked as verified successfully!";
+
+                // Send email to admin about payment proof upload
+                $user = getUserByIdOrName($pdo, $userId);
+                $admin_data = [
+                    'username' => $user['username']
+                ];
+                sendNotificationEmail('payment_proof_admin', $admin_data, 'nahjonah00@gmail.com', 'New Payment Proof Uploaded');
             } catch (PDOException $e) {
                 $message = "Error verifying: " . $e->getMessage();
             }

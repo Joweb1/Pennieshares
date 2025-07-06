@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/email_functions.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/assets_functions.php';
 
@@ -40,6 +41,22 @@ function registerUser($fullname, $email, $username, $phone, $referral, $password
         ':partner_code'  => $partner_code,
         ':password'      => $hash
     ]);
+
+    if ($success) {
+        // Send email to user
+        $user_data = [
+            'username' => $username,
+            'login_url' => 'https://yourdomain.com/login' // Replace with your actual login URL
+        ];
+        sendNotificationEmail('new_user_registration_user', $user_data, $email, 'Welcome to Pennieshares!');
+
+        // Send email to admin
+        $admin_data = [
+            'username' => $username,
+            'email' => $email
+        ];
+        sendNotificationEmail('new_user_registration_admin', $admin_data, 'nahjonah00@gmail.com', 'New User Registration');
+    }
 
     return $success;
 }
@@ -201,6 +218,17 @@ function creditUserWallet($userId, $amount, $description = 'Broker Credited You'
             // Log the transaction
             $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
             $logStmt->execute([$userId, 'credit', $amount, $description]);
+
+            // Send email to user
+            $user = getUserByIdOrName($pdo, $userId);
+            $transaction_data = [
+                'username' => $user['username'],
+                'transaction_type' => 'Credit',
+                'amount' => $amount,
+                'description' => $description,
+                'date' => date('Y-m-d H:i:s')
+            ];
+            sendNotificationEmail('wallet_transaction_user', $transaction_data, $user['email'], 'Wallet Credit Notification');
         }
         return $result;
     } catch (PDOException $e) {
@@ -297,6 +325,28 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
         // Log receiver's transaction
         $logStmt->execute([$receiverId, 'transfer_in', $amount, 'Transfer from user ID ' . $senderId]);
 
+        // Send email to sender
+        $sender = getUserByIdOrName($pdo, $senderId);
+        $sender_data = [
+            'username' => $sender['username'],
+            'transaction_type' => 'Transfer Out',
+            'amount' => $amount,
+            'description' => $payoutDescription,
+            'date' => date('Y-m-d H:i:s')
+        ];
+        sendNotificationEmail('wallet_transaction_user', $sender_data, $sender['email'], 'Wallet Transfer Notification');
+
+        // Send email to receiver
+        $receiver = getUserByIdOrName($pdo, $receiverId);
+        $receiver_data = [
+            'username' => $receiver['username'],
+            'transaction_type' => 'Transfer In',
+            'amount' => $amount,
+            'description' => 'Transfer from user ' . $sender['username'],
+            'date' => date('Y-m-d H:i:s')
+        ];
+        sendNotificationEmail('wallet_transaction_user', $receiver_data, $receiver['email'], 'Wallet Transfer Notification');
+
         return ['success' => true, 'message' => "Transfer successful."];
 
     } catch (PDOException $e) {
@@ -342,6 +392,17 @@ function debitUserWallet($pdo, $userId, $amount, $transactionDescription = '') {
     // Log the transaction
     $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
     $logStmt->execute([$userId, 'debit', -$amount, $transactionDescription]);
+
+    // Send email to user
+    $user = getUserByIdOrName($pdo, $userId);
+    $transaction_data = [
+        'username' => $user['username'],
+        'transaction_type' => 'Debit',
+        'amount' => $amount,
+        'description' => $transactionDescription,
+        'date' => date('Y-m-d H:i:s')
+    ];
+    sendNotificationEmail('wallet_transaction_user', $transaction_data, $user['email'], 'Wallet Debit Notification');
 
     return true;
 }
@@ -498,6 +559,22 @@ function getTotalUserCount($pdo, $searchQuery = '') {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchColumn();
+}
+
+function checkAndSendDailyLoginEmail($pdo, $userId) {
+    $today = date('Y-m-d');
+    $stmt = $pdo->prepare("SELECT last_login_email_sent FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $lastSentDate = $stmt->fetchColumn();
+
+    if ($lastSentDate != $today) {
+        $user = getUserByIdOrName($pdo, $userId);
+        $data = ['username' => $user['username']];
+        sendNotificationEmail('first_daily_login_user', $data, $user['email'], 'Daily Login');
+
+        $updateStmt = $pdo->prepare("UPDATE users SET last_login_email_sent = ? WHERE id = ?");
+        $updateStmt->execute([$today, $userId]);
+    }
 }
 
 ?>

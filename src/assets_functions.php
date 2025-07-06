@@ -263,16 +263,16 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
 
     $overallResults['summary'][] = "Successfully purchased {$numAssetsToBuy} of '{$assetType['name']}'. Total Cost: SV" . number_format($totalCost, 2) . ".";
     
-    // Send email notification for asset purchase
-    /*
+    // Send email notification for asset purchase to admin
     $user = getUserByIdOrName($pdo, $userId);
     if ($user) {
-        $currentBalance = getUserWalletBalance($pdo, $userId);
-        $description = "Purchase of {$numAssetsToBuy} x {$assetType['name']}";
-        $emailBody = getTransactionEmailTemplate($user['username'], 'buy_asset', $totalCost, $description, $currentBalance);
-        sendEmail($user['email'], $user['username'], "Asset Purchase Confirmation - Pennieshares", $emailBody);
+        $admin_data = [
+            'username' => $user['username'],
+            'asset_name' => $assetType['name'],
+            'price' => number_format($totalCost, 2)
+        ];
+        sendNotificationEmail('asset_purchase_admin', $admin_data, 'nahjonah00@gmail.com', 'New Asset Purchase');
     }
-    */
 
     return $overallResults;
 }
