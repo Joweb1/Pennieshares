@@ -4,18 +4,18 @@ require_once __DIR__ . '/email_functions.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/assets_functions.php';
 
-function getUserByEmail($email) {
+function getUserByEmail($pdo, $email) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = :email");
+    $stmt = $pdo->prepare("SELECT *, is_broker, is_verified FROM users WHERE email = :email");
     $stmt->execute(['email' => $email]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function registerUser($fullname, $email, $username, $phone, $referral, $password) {
+function registerUser($pdo, $fullname, $email, $username, $phone, $referral, $password) {
     global $pdo;
 
     // Validate referral code if provided
-    if (!empty($referral) && !validatePartnerCode($referral)) {
+    if (!empty($referral) && !validatePartnerCode($pdo, $referral)) {
         return false;
     }
 
@@ -24,12 +24,12 @@ function registerUser($fullname, $email, $username, $phone, $referral, $password
 
     $hash = password_hash($password, PASSWORD_BCRYPT);
 
-    $stmt = $pdo->prepare("
-        INSERT INTO users (fullname, email, username, phone, referral, stage,
-                          partner_code, password)
-        VALUES (:fullname, :email, :username, :phone, :referral, 
-                :stage, :partner_code, :password)
-    ");
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (fullname, email, username, phone, referral, stage," .
+        "                  partner_code, password, is_verified)" .
+        " VALUES (:fullname, :email, :username, :phone, :referral, " .
+        "                :stage, :partner_code, :password, :is_verified)"
+    );
 
     $success = $stmt->execute([
         ':fullname'      => $fullname,
@@ -39,23 +39,30 @@ function registerUser($fullname, $email, $username, $phone, $referral, $password
         ':referral'      => $referral,
         ':stage'		 => 1,
         ':partner_code'  => $partner_code,
-        ':password'      => $hash
+        ':password'      => $hash,
+        ':is_verified'   => 0 // Set to 0 for unverified
     ]);
 
     if ($success) {
-        // Send email to user
-        $user_data = [
-            'username' => $username,
-            'login_url' => 'https://yourdomain.com/login' // Replace with your actual login URL
-        ];
-        sendNotificationEmail('new_user_registration_user', $user_data, $email, 'Welcome to Pennieshares!');
+        $user_id = $pdo->lastInsertId();
+        $otp = generateAndStoreOtp($pdo, $user_id); // Generate and store OTP
 
-        // Send email to admin
-        $admin_data = [
-            'username' => $username,
-            'email' => $email
-        ];
-        sendNotificationEmail('new_user_registration_admin', $admin_data, 'nahjonah00@gmail.com', 'New User Registration');
+        if ($otp) {
+            // Send OTP email
+            $otp_data = [
+                'username' => $username,
+                'otp_code' => $otp
+            ];
+            sendNotificationEmail('otp_email', $otp_data, $email, 'Verify Your Pennieshares Account');
+
+            // Store email in session for verification page
+            $_SESSION['registration_email_for_otp'] = $email;
+            return true; // Indicate success for redirection
+        } else {
+            // Handle OTP generation/storage failure
+            error_log("Failed to generate/store OTP for user: " . $email);
+            return false;
+        }
     }
 
     return $success;
@@ -85,7 +92,7 @@ function generatePartnerCode($username) {
 }
 
 // Validate referral partner code
-function validatePartnerCode($partner_code) {
+function validatePartnerCode($pdo, $partner_code) {
     global $pdo;
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE partner_code = ?");
     $stmt->execute([$partner_code]);
@@ -110,10 +117,15 @@ function secureSession() {
 }
 
 // Update loginUser function to prevent timing attacks
-function loginUser($email, $password) {
-    $user = getUserByEmail($email);
+function loginUser($pdo, $email, $password) {
+    $user = getUserByEmail($pdo, $email);
     if ($user) {
         if (password_verify($password, $user['password'])) {
+            if ($user['is_verified'] == 0) {
+                $_SESSION['registration_email_for_otp'] = $user['email']; // Store email for OTP page
+                header("Location: verify_registration_otp");
+                exit();
+            }
             if (password_needs_rehash($user['password'], PASSWORD_BCRYPT)) {
                 $newHash = password_hash($password, PASSWORD_BCRYPT);
                 // Update password hash in database
@@ -155,21 +167,78 @@ function clearResetToken($userId) {
     $stmt = $pdo->prepare("UPDATE users SET reset_token = NULL, reset_expires = NULL WHERE id = :id");
     return $stmt->execute(['id' => $userId]);
 }
+
+function generateAndStoreOtp($pdo, $userId) {
+    $otp = str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+1 minute')); // OTP expires in 1 minute
+
+    $stmt = $pdo->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?");
+    if ($stmt->execute([$otp, $expiresAt, $userId])) {
+        return $otp;
+    }
+    return false;
+}
+
+function verifyOtp($pdo, $userId, $otp) {
+    $stmt = $pdo->prepare("SELECT otp_code, otp_expires_at FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user && $user['otp_code'] === $otp && strtotime($user['otp_expires_at']) > time()) {
+        // OTP is valid and not expired, clear it
+        $clearStmt = $pdo->prepare("UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?");
+        $clearStmt->execute([$userId]);
+        return true;
+    }
+    return false;
+}
+
+function resetUserPassword($pdo, $userId, $newPassword) {
+    $hash = password_hash($newPassword, PASSWORD_BCRYPT);
+    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+    return $stmt->execute([$hash, $userId]);
+}
+
 // Function to check if user is authenticated
 function check_auth() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
     if (!isset($_SESSION['user'])) {
         header("Location: login");
         exit;
     }
+
+    // Check for session expiration (1 hour inactivity)
+    $session_lifetime = 3600; // 1 hour in seconds
+    if (isset($_SESSION['_last_activity']) && (time() - $_SESSION['_last_activity'] > $session_lifetime)) {
+        session_unset();     // Unset all of the session variables
+        session_destroy();   // Destroy the session
+        header("Location: login?session_expired=true");
+        exit;
+    }
+
+    // Update last activity time
+    $_SESSION['_last_activity'] = time();
+
+    // Check if user is verified
+    if (($_SESSION['user']['is_verified'] ?? 0) == 0) {
+        $_SESSION['registration_email_for_otp'] = $_SESSION['user']['email']; // Store email for OTP page
+        header("Location: verify_registration_otp");
+        exit;
+    }
 }
 function verify_auth() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (isset($_SESSION['user'])) {
-        header("Location: dashboard");
+        header("Location: wallet");
         exit;
     }
 }
 function generateCsrfToken(){
-	// Generate CSRF Token if not set
 	if(!isset($_SESSION['csrf_token'])){
 	$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 	}
@@ -205,30 +274,42 @@ function deleteUserAccount($pdo, $userId) {
 	}
 	}
 
-function creditUserWallet($userId, $amount, $description = 'Broker Credited You') {
+function creditUserWallet($userId, $amount, $description = 'Broker Credited You', $assetDetails = null) {
     global $pdo;
     if (!is_numeric($amount) || $amount <= 0) {
         return false;
     }
     try {
         $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :id");
-        $result = $stmt->execute([':amount' => $amount, ':id' => $userId]);
+        $result = $stmt->execute(['amount' => $amount, 'id' => $userId]);
         
         if ($result) {
             // Log the transaction
             $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
             $logStmt->execute([$userId, 'credit', $amount, $description]);
 
-            // Send email to user
-            $user = getUserByIdOrName($pdo, $userId);
-            $transaction_data = [
-                'username' => $user['username'],
-                'transaction_type' => 'Credit',
-                'amount' => $amount,
-                'description' => $description,
-                'date' => date('Y-m-d H:i:s')
-            ];
-            sendNotificationEmail('wallet_transaction_user', $transaction_data, $user['email'], 'Wallet Credit Notification');
+            // Send email to user only if not in CLI context
+            if ($description !== 'Asset Profit') {
+                $user = getUserByIdOrName($pdo, $userId);
+                $transaction_data = [
+                    'username' => $user['username'],
+                    'transaction_type' => 'Credit',
+                    'amount' => $amount,
+                    'description' => $description,
+                    'date' => date('Y-m-d H:i:s'),
+                    'asset_name' => $assetDetails ? $assetDetails['name'] : null,
+                    'asset_image' => $assetDetails ? $assetDetails['image_link'] : null
+                ];
+                sendNotificationEmail('wallet_transaction_user', $transaction_data, $user['email'], 'Wallet Credit Notification');
+
+                // Send push notification for credit
+                $payload = [
+                    'title' => 'Wallet Credited!',
+                    'body' => 'Your wallet has been credited with SV' . number_format($amount, 2) . '. Reason: ' . $description,
+                    'icon' => 'assets/images/logo.png',
+                ];
+                sendPushNotification($userId, $payload);
+            }
         }
         return $result;
     } catch (PDOException $e) {
@@ -241,7 +322,7 @@ function updateUserProfile($pdo, $userId, $fullname, $phone) {
     try {
         $stmt = $pdo->prepare("UPDATE users SET fullname = ?, phone = ? WHERE id = ?");
         $stmt->execute([$fullname, $phone, $userId]);
-        return $stmt->rowCount() > 0;
+#        return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
         error_log("Error updating user profile: " . $e->getMessage());
         return false;
@@ -272,18 +353,18 @@ function updateUserPassword($pdo, $userId, $oldPassword, $newPassword) {
 
 function getUserByIdOrName($pdo, $identifier) {
     if (is_numeric($identifier)) {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT *, is_broker, is_verified FROM users WHERE id = ?");
         $stmt->execute([$identifier]);
     } else {
         // Try username first
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt = $pdo->prepare("SELECT *, is_broker, is_verified FROM users WHERE username = ?");
         $stmt->execute([$identifier]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($user) {
             return $user;
         }
         // If not found by username, try partner_code
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE partner_code = ?");
+        $stmt = $pdo->prepare("SELECT *, is_broker, is_verified FROM users WHERE partner_code = ?");
         $stmt->execute([$identifier]);
     }
     return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -299,6 +380,20 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
     }
 
     try {
+        // Check sender's role
+        $senderUser = getUserByIdOrName($pdo, $senderId);
+        $isSenderBroker = $senderUser['is_broker'] == 1;
+
+        // Check receiver's role if sender is not a broker
+        if (!$isSenderBroker) {
+            $receiverUser = getUserByIdOrName($pdo, $receiverId);
+            if ($receiverUser['is_broker'] != 1) {
+                return ['success' => false, 'message' => "You can only transfer to a broker."];
+            }
+        }
+
+        
+
         // Check sender's balance
         $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
         $stmt->execute([$senderId]);
@@ -323,10 +418,14 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
         $stmt->execute([$amount, $receiverId]);
 
         // Log receiver's transaction
-        $logStmt->execute([$receiverId, 'transfer_in', $amount, 'Transfer from user ID ' . $senderId]);
+        $sender = getUserByIdOrName($pdo, $senderId);
+        $receiverDescription = 'Transfer from user ' . $sender['username'];
+        if ($isSenderBroker) {
+            $receiverDescription = 'Credit from Broker: ' . $sender['username'];
+        }
+        $logStmt->execute([$receiverId, 'transfer_in', $amount, $receiverDescription]);
 
         // Send email to sender
-        $sender = getUserByIdOrName($pdo, $senderId);
         $sender_data = [
             'username' => $sender['username'],
             'transaction_type' => 'Transfer Out',
@@ -335,6 +434,13 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
             'date' => date('Y-m-d H:i:s')
         ];
         sendNotificationEmail('wallet_transaction_user', $sender_data, $sender['email'], 'Wallet Transfer Notification');
+        // Send push notification to sender
+        $sender_payload = [
+            'title' => 'Funds Transferred!',
+            'body' => 'You have successfully transferred SV' . number_format($amount, 2) . ' to ' . $receiverUser['username'] . '.',
+            'icon' => 'assets/images/logo.png',
+        ];
+        sendPushNotification($senderId, $sender_payload);
 
         // Send email to receiver
         $receiver = getUserByIdOrName($pdo, $receiverId);
@@ -342,10 +448,21 @@ function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
             'username' => $receiver['username'],
             'transaction_type' => 'Transfer In',
             'amount' => $amount,
-            'description' => 'Transfer from user ' . $sender['username'],
+            'description' => $receiverDescription,
             'date' => date('Y-m-d H:i:s')
         ];
-        sendNotificationEmail('wallet_transaction_user', $receiver_data, $receiver['email'], 'Wallet Transfer Notification');
+        if ($isSenderBroker) {
+            send_broker_credit_email($receiver['email'], $receiver['username'], $amount, $sender['username']);
+        } else {
+            sendNotificationEmail('wallet_transaction_user', $receiver_data, $receiver['email'], 'Wallet Transfer Notification');
+        }
+        // Send push notification to receiver
+        $receiver_payload = [
+            'title' => 'Funds Received!',
+            'body' => 'You have received SV' . number_format($amount, 2) . ' from ' . $sender['username'] . '.',
+            'icon' => 'assets/images/logo.png',
+        ];
+        sendPushNotification($receiverId, $receiver_payload);
 
         return ['success' => true, 'message' => "Transfer successful."];
 
@@ -366,10 +483,39 @@ function assignAdminRole($pdo, $userId) {
     }
 }
 
+function assignBrokerRole($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET is_broker = 1 WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error assigning broker role: " . $e->getMessage());
+        return false;
+    }
+}
+
 function getUserWalletBalance($pdo, $userId) {
     $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
     $stmt->execute([$userId]);
     return $stmt->fetchColumn();
+}
+
+function getTotalUsersWalletBalance($pdo) {
+    $stmt = $pdo->prepare("SELECT SUM(wallet_balance) FROM users");
+    $stmt->execute();
+    return $stmt->fetchColumn() ?? 0;
+}
+
+function getTotalAssetsCost($pdo) {
+    $stmt = $pdo->prepare("SELECT SUM(at.price) FROM assets a JOIN asset_types at ON a.asset_type_id = at.id");
+    $stmt->execute();
+    return $stmt->fetchColumn() ?? 0;
+}
+
+function getTotalUsersProfit($pdo) {
+    $stmt = $pdo->prepare("SELECT SUM(total_return) FROM users");
+    $stmt->execute();
+    return $stmt->fetchColumn() ?? 0;
 }
 
 function debitUserWallet($pdo, $userId, $amount, $transactionDescription = '') {
@@ -403,6 +549,14 @@ function debitUserWallet($pdo, $userId, $amount, $transactionDescription = '') {
         'date' => date('Y-m-d H:i:s')
     ];
     sendNotificationEmail('wallet_transaction_user', $transaction_data, $user['email'], 'Wallet Debit Notification');
+
+    // Send push notification for debit
+    $payload = [
+        'title' => 'Wallet Debited!',
+        'body' => 'Your wallet has been debited by SV' . number_format($amount, 2) . '. Reason: ' . $transactionDescription,
+        'icon' => 'assets/images/logo.png',
+    ];
+    sendPushNotification($userId, $payload);
 
     return true;
 }
@@ -455,21 +609,21 @@ function getTotalWalletTransactionCount($pdo, $userId, $type = null) {
 
 function findBrokerStatus($pdo, $identifier) {
     // Try to find by username
-    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE username = ?");
+    $stmt = $pdo->prepare("SELECT is_broker FROM users WHERE username = ?");
     $stmt->execute([$identifier]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user) {
-        return $user['is_admin'] == 1 ? 'certified_broker' : 'not_certified_broker';
+        return $user['is_broker'] == 1 ? 'certified_broker' : 'not_certified_broker';
     }
 
     // If not found by username, try by partner_code
-    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE partner_code = ?");
+    $stmt = $pdo->prepare("SELECT is_broker FROM users WHERE partner_code = ?");
     $stmt->execute([$identifier]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user) {
-        return $user['is_admin'] == 1 ? 'certified_broker' : 'not_certified_broker';
+        return $user['is_broker'] == 1 ? 'certified_broker' : 'not_certified_broker';
     }
 
     return 'not_found';
@@ -478,13 +632,57 @@ function findBrokerStatus($pdo, $identifier) {
 function verifyUserAccount($pdo, $userId) {
     try {
         $stmt = $pdo->prepare("UPDATE users SET status = 2 WHERE id = ? AND status != 2");
-        $stmt->execute([$userId]);
-        return $stmt->rowCount() > 0;
+        $success = $stmt->execute([$userId]);
+
+        if ($success && $stmt->rowCount() > 0) {
+            $user = getUserByIdOrName($pdo, $userId);
+            if ($user) {
+                // Send email to user
+                $user_data = [
+                    'username' => $user['username']
+                ];
+                sendNotificationEmail('account_verified_user', $user_data, $user['email'], 'Congratulations! Your Pennieshares Account is Verified!');
+
+                // Send email to admin
+                $admin_data = [
+                    'username' => $user['username'],
+                    'email' => $user['email']
+                ];
+                sendNotificationEmail('account_verified_admin', $admin_data, 'penniepoint@gmail.com', 'New User Account Verified');
+            }
+            return true;
+        }
+        return false;
     } catch (PDOException $e) {
         error_log("Error verifying user account: " . $e->getMessage());
         return false;
     }
 }
+
+function verifyUserEmail($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET is_verified = 1 WHERE id = ? AND is_verified != 1");
+        $success = $stmt->execute([$userId]);
+
+        if ($success && $stmt->rowCount() > 0) {
+            $user = getUserByIdOrName($pdo, $userId);
+            if ($user) {
+                // Send email to user
+                $user_data = [
+                    'username' => $user['username']
+                ];
+                sendNotificationEmail('email_verified_user', $user_data, $user['email'], 'Congratulations! Your Email has been Verified!');
+          
+            }
+            return true;
+        }
+        return false;
+    } catch (PDOException $e) {
+        error_log("Error verifying user email: " . $e->getMessage());
+        return false;
+    }
+}
+
 
 function deleteExpiredOrCompletedAssets($pdo) {
     try {
@@ -574,6 +772,207 @@ function checkAndSendDailyLoginEmail($pdo, $userId) {
 
         $updateStmt = $pdo->prepare("UPDATE users SET last_login_email_sent = ? WHERE id = ?");
         $updateStmt->execute([$today, $userId]);
+    }
+}
+
+use Minishlink\WebPush\WebPush;
+use Minishlink\WebPush\Subscription;
+
+function sendPushNotification($userId, $payload) {
+    global $pdo;
+
+    // Send Web Push Notifications
+    $stmt = $pdo->prepare("SELECT * FROM push_subscriptions WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $webSubscriptions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $config = require __DIR__ . '/../config/push.php';
+    $auth = [
+        'VAPID' => [
+            'subject' => $config['vapid']['subject'],
+            'publicKey' => $config['vapid']['publicKey'],
+            'privateKey' => $config['vapid']['privateKey'],
+        ],
+    ];
+
+    $webPush = new WebPush($auth);
+
+    foreach ($webSubscriptions as $sub) {
+        $subscription = Subscription::create([
+            'endpoint' => $sub['endpoint'],
+            'publicKey' => $sub['p256dh'],
+            'authToken' => $sub['auth'],
+        ]);
+        $webPush->queueNotification($subscription, json_encode($payload));
+    }
+
+    foreach ($webPush->flush() as $report) {
+        $endpoint = $report->getRequest()->getUri()->__toString();
+
+        if ($report->isSuccess()) {
+            error_log("[v] Web Push: Message sent successfully for subscription {\$endpoint}.");
+        } else {
+            error_log("[x] Web Push: Message failed to sent for subscription {\$endpoint}: {\$report->getReason()}");
+        }
+    }
+
+    // Send Expo Push Notifications
+    $stmt = $pdo->prepare("SELECT token FROM expo_push_tokens WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $expoTokens = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!empty($expoTokens)) {
+        $expoPushUrl = 'https://exp.host/--/api/v2/push/send';
+        $headers = [
+            'Accept: application/json',
+            'Accept-Encoding: gzip, deflate',
+            'Content-Type: application/json',
+        ];
+
+        foreach ($expoTokens as $token) {
+            $expoPayload = [
+                'to' => $token,
+                'title' => $payload['title'] ?? '',
+                'body' => $payload['body'] ?? '',
+                'data' => $payload['data'] ?? [],
+                'sound' => 'default',
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $expoPushUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($expoPayload));
+
+            $response = curl_exec($ch);
+            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($response === false) {
+                error_log("[x] Expo Push: cURL error for token {\$token}: {\$error}");
+            } elseif ($httpcode !== 200) {
+                error_log("[x] Expo Push: HTTP error {\$httpcode} for token {\$token}: {\$response}");
+            } else {
+                error_log("[v] Expo Push: Message sent successfully for token {\$token}. Response: {\$response}");
+            }
+        }
+    }
+}
+
+function processPendingProfits($pdo) {
+    try {
+        $now = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare("SELECT * FROM pending_profits WHERE is_credited = 0 AND credit_at <= :now");
+        $stmt->execute(['now' => $now]);
+        $pendingProfits = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($pendingProfits as $profit) {
+            // Get asset details
+            $assetStmt = $pdo->prepare("SELECT at.name, at.image_link FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.id = ?");
+            $assetStmt->execute([$profit['receiving_asset_id']]);
+            $assetDetails = $assetStmt->fetch(PDO::FETCH_ASSOC);
+
+            // Credit user wallet
+            $credit_success = creditUserWallet($profit['user_id'], $profit['fractional_amount'], 'Asset Profit', $assetDetails);
+
+            if ($credit_success) {
+                // Also update total_return when profit is actually credited
+                $updateTotalReturnStmt = $pdo->prepare("UPDATE users SET total_return = total_return + ? WHERE id = ?");
+                $updateTotalReturnStmt->execute([$profit['fractional_amount'], $profit['user_id']]);
+
+                // Mark as credited and delete
+                $deleteStmt = $pdo->prepare("DELETE FROM pending_profits WHERE id = ?");
+                $deleteStmt->execute([$profit['id']]);
+
+                // Send push notification
+                $user = getUserByIdOrName($pdo, $profit['user_id']);
+                $payload = [
+                    'title' => 'Profit Credited!',
+                    'body' => 'You have received a profit of ' . number_format($profit['fractional_amount'], 2) . ' from your asset: ' . $assetDetails['name'],
+                    'icon' => 'assets/images/logo.png',
+                ];
+                sendPushNotification($profit['user_id'], $payload);
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error during profit processing: " . $e->getMessage());
+    }
+}
+
+function getPaginatedPendingProfits($pdo, $limit, $offset, $searchQuery = '') {
+    $sql = "SELECT pp.*, u.username FROM pending_profits pp JOIN users u ON pp.user_id = u.id";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE u.username LIKE ? OR pp.payout_type LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $sql .= " ORDER BY pp.credit_at ASC LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getTotalPendingProfitsCount($pdo, $searchQuery = '') {
+    $sql = "SELECT COUNT(*) FROM pending_profits pp JOIN users u ON pp.user_id = u.id";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE u.username LIKE ? OR pp.payout_type LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchColumn();
+}
+
+function getTotalPendingProfitsSum($pdo, $searchQuery = '') {
+    $sql = "SELECT SUM(fractional_amount) FROM pending_profits pp JOIN users u ON pp.user_id = u.id";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " WHERE u.username LIKE ? OR pp.payout_type LIKE ?";
+        $params[] = '%' . $searchQuery . '%';
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchColumn() ?? 0;
+}
+
+function deletePaymentProofForUser($pdo, $userId) {
+    try {
+        // Get the file path before deleting the record
+        $stmt = $pdo->prepare("SELECT file_path FROM payment_proofs WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $filePath = $stmt->fetchColumn();
+
+        // Delete the record from the database
+        $deleteStmt = $pdo->prepare("DELETE FROM payment_proofs WHERE user_id = ?");
+        $deleteStmt->execute([$userId]);
+
+        // If the record was deleted and a file path exists, delete the file
+        if ($deleteStmt->rowCount() > 0 && $filePath) {
+            $absoluteFilePath = __DIR__ . '/../' . $filePath; // Construct absolute path from project root
+            if (file_exists($absoluteFilePath)) {
+                unlink($absoluteFilePath);
+            }
+        }
+
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error deleting payment proof for user {$userId}: " . $e->getMessage());
+        return false;
     }
 }
 

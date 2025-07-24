@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Payment Process</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+     /*   :root {
+            --primary-color: #1976d2;
+            --primary-dark: #0d47a1;
+            --secondary-color: #4caf50;
+            --header-bg: #ffffff;
+            --body-bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-dark: #0d141c;
+            --text-medium: #4a5568;
+            --text-light: #718096;
+            --progress-bg: #e2e8f0;
+            --progress-active: #1976d2;
+            --button-primary: #1976d2;
+            --button-primary-hover: #0d47a1;
+            --button-secondary: #e2e8f0;
+            --button-secondary-hover: #d1d9e6;
+            --button-text: #ffffff;
+            --input-bg: #f1f5f9;
+            --placeholder-color: #94a3b8;
+            --upload-border: #cbd5e1;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+        } */
+        :root {
+        --primary-color: #0c7ff2;
+        --primary-light: #e0f0ff;
+        --primary-dark: #0d47a1;
+        --secondary-color: #4caf50;
+        --header-bg: #ffffff;
+        --body-bg: #f8fafc;
+        --card-bg: #ffffff;
+        --border-color: #e2e8f0;
+        --text-dark: #0d141c;
+        --text-medium: #4a5568;
+        --text-light: #718096;
+        --progress-bg: #e2e8f0;
+        --progress-active: #0c7ff2;
+        --button-primary: #0c7ff2;
+        --button-primary-hover: #0d47a1;
+        --button-secondary: #e2e8f0;
+        --button-secondary-hover: #d1d9e6;
+        --button-text: #ffffff;
+        --input-bg: #f1f5f9;
+        --placeholder-color: #94a3b8;
+        --upload-border: #cbd5e1;
+        --success-color: #4caf50;
+        --error-color: #ef4444;
+        }
+        
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Noto Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--body-bg);
+            min-height: 100vh;
+            color: var(--text-dark);
+            /* background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);*/
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1.25rem;
+        }
+
+        .breadcrumb {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem 1rem 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .breadcrumb a {
+            color: #4b739b;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb span {
+            color: var(--text-dark);
+        }
+
+        .title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0.5rem 0 1.5rem;
+            background: linear-gradient(45deg, var(--primary-dark), var(--text-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        .title::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: var(--primary-dark);
+            border-radius: 2px;
+        }
+        
+        /* Profile Header */
+        .profile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10% 0;
+            position: relative;
+        }
+        
+        .profile-picture-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .profile-picture {
+            width: 7rem;
+            height: 7rem;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+      /*  .profile-picture-wrapper::before {
+            content: "";
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            border-radius: 50%;
+            z-index: -1;
+        }*/
+
+        /* Progress Bar */
+        .progress-container {
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+
+        .step-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .step-number {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-medium);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background-color: var(--progress-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        /* Form Styles */
+        .form-group {
+            padding: 0.75rem 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-medium);
+        }
+
+        .input-field {
+            width: 100%;
+            height: 3.5rem;
+            padding: 1rem;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.2);
+        }
+
+        .input-field::placeholder {
+            color: var(--placeholder-color);
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 0.2rem;
+            margin: 1rem 0;
+            color: var(--text-medium);
+            position: relative;
+        }
+
+        .section-title i {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-dark);
+        }
+
+        /* Payment Method */
+        .payment-method {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background-color: var(--card-bg);
+            border-radius: 0.75rem;
+            margin: 0.75rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .payment-method:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .payment-icon {
+            width: 3.5rem;
+            height: 3.5rem;
+            background-color: var(--button-secondary);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--primary-dark);
+            font-size: 1.5rem;
+        }
+
+        .payment-info {
+            flex-grow: 1;
+        }
+
+        .payment-info p {
+            margin: 0.25rem 0;
+        }
+
+        .account-details {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .account-number {
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+
+        .copy-btn:hover {
+            background-color: rgba(25, 118, 210, 0.1);
+            color: var(--primary-dark);
+        }
+
+        .account-name {
+            font-weight: 500;
+            color: var(--text-medium);
+        }
+
+        .account-type {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            background-color: rgba(25, 118, 210, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        /* Amount Display */
+        .amount-display {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            color: var(--success-color);
+            margin: 1rem 0;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        /* Upload Area */
+        .upload-container {
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--upload-border);
+            border-radius: 1rem;
+            padding: 2.5rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 1.5rem;
+            background-color: white;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 220px;
+        }
+
+        .upload-area.active {
+            border-color: var(--primary-color);
+            background-color: rgba(25, 118, 210, 0.05);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        .upload-text h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--primary-dark);
+        }
+
+        .upload-text p {
+            color: var(--text-medium);
+            font-size: 0.95rem;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        /* Preview Container */
+        .preview-container {
+            display: none;
+            width: 100%;
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        .preview-title {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--primary-dark);
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+            margin: 0 auto;
+            display: block;
+        }
+
+        /* Buttons */
+        .button {
+            height: 3rem;
+            padding: 0 1.75rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .button i {
+            font-size: 1.1rem;
+        }
+
+        .button-primary {
+            background: linear-gradient(135deg, var(--primary-dark), var(--text-dark));
+            color: var(--button-text);
+            box-shadow: 0 4px 10px rgba(25, 118, 210, 0.3);
+        }
+
+        .button-primary:hover {
+            background: linear-gradient(135deg, var(--primary-dark), #0a3d8f);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(25, 118, 210, 0.4);
+        }
+
+        .button-secondary {
+            background-color: var(--button-secondary);
+            color: var(--text-dark);
+        }
+
+        .button-secondary:hover {
+            background-color: var(--button-secondary-hover);
+            transform: translateY(-2px);
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            padding: 1.5rem 1rem 0.5rem;
+            gap: 1rem;
+        }
+
+        /* Step Navigation */
+        .step {
+            display: none;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            overflow: hidden;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .step.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* Confirmation Step */
+        .confirmation-content {
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
+        .confirmation-icon {
+            font-size: 4rem;
+            color: var(--success-color);
+            margin-bottom: 1.5rem;
+            animation: bounce 1s ease;
+        }
+
+        .confirmation-content p {
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            color: var(--text-medium);
+            line-height: 1.6;
+            max-width: 500px;
+            margin: 0 auto 2rem;
+        }
+
+        .center-button {
+            justify-content: center;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background-color: var(--success-color);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(-20px);}
+            60% {transform: translateY(-10px);}
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .profile-picture {
+                width: 6rem;
+                height: 6rem;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span>Account number copied to clipboard!</span>
+    </div>
+
+    <main>
+        <div class="container">
+            <div class="breadcrumb">
+               
+                <a href="#"> License</a> <span>/</span>
+                <span> Payment</span>
+            </div>
+            
+            <h1 class="title">Get Licensed</h1>
+            
+            <div class="profile-header">
+                <div class="profile-picture-wrapper">
+                    <img alt="Profile picture" class="profile-picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-4RPOc6HNDAFhk_LyIy-p2fSrbKXD0aYO2mINMFUXtrD_yVkQ9iNA6_NNEBlSbRJe3adn6t5xMCfqiBySHBHUmR3cMIchTGSUvbGs1Eem3fZtz2ou-E1xRTcGwF2rD82I3s4pTQIBatm2UKl00vf0Xz_ebifLCuyoTkDWQzDn1m6QjPADKt3UFJududA247DLw1un-BJKCNnZ_6iTcqV3T_V5NJrA7N4SPCRRWvEEnDzahaZI_NFsGivv4_gktKFP8FPt-WGQfGo" />
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="step-info">
+                    <span class="step-number" id="step-text">Step 1 of 3</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 33%"></div>
+                </div>
+            </div>
+            
+            <!-- Step 1: Payment Details -->
+            <div class="step active" id="step1">
+                <h3 class="section-title">
+                   <!-- <i class="fas fa-money-bill-wave"></i>--> Amount
+                </h3>
+                <div class="amount-display">
+                    ₦1,000.00
+                </div>
+                
+                <h3 class="section-title">
+                   <!-- <i class="fas fa-university"></i>--> Payment Method
+                </h3>
+                <div class="payment-method">
+                    <div class="payment-icon">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div class="payment-info">
+                        <p class="account-name">Uroh Patience</p>
+                        <div class="account-details">
+                            <span class="account-number" id="account-number">9135580911</span>
+                            <button class="copy-btn" id="copy-btn" title="Copy account number">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+                        <span class="account-type">Moniepoint MFB • Bank account</span>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="button button-primary" id="next-step1">
+                        Continue <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Step 2: Payment Proof -->
+            <div class="step" id="step2">
+                <h3 class="section-title">
+                    <!-- <i class="fas fa-file-upload"></i> --> Upload Payment Proof
+                </h3>
+                
+                <div class="upload-container">
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-text">
+                            <h3>Drag & Drop or Browse</h3>
+                            <p>Upload a screenshot or receipt of your payment (JPG, PNG)</p>
+                        </div>
+                        <button class="button button-secondary" id="browse-btn">
+                            <i class="fas fa-folder-open"></i> Browse Files
+                        </button>
+                        <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    </div>
+                    
+                    <div class="preview-container" id="preview-container">
+                        <div class="preview-title">Uploaded Image Preview</div>
+                        <img src="" alt="Payment proof preview" class="image-preview" id="image-preview">
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="button button-secondary" id="prev-step2">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="button button-primary" id="next-step2">
+                        Next Step <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Step 3: Confirmation -->
+            <div class="step" id="step3">
+                <div class="confirmation-content">
+                    <div class="confirmation-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h2 class="title" style="text-align: center; margin-bottom: 1.5rem;">Payment Submitted!</h2>
+                    
+                    <p>
+                        Your payment is being processed. We'll notify you via email once your license is approved.
+                        This usually takes 1-2 business days. You can check your verification status at any time.
+                    </p>
+                    
+                    <div class="button-group center-button">
+                    	<button class="button button-secondary" id="prev-step3">
+                    		<i class="fas fa-arrow-left"></i> Back
+                    	</button>
+                        <button class="button button-primary" id="view-details">
+                            <i class="fas fa-id-card"></i> Check Verification Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+            const nextStep1 = document.getElementById('next-step1');
+            const nextStep2 = document.getElementById('next-step2');
+            const prevStep2 = document.getElementById('prev-step2');
+            const prevStep3 = document.getElementById('prev-step3');
+            const stepText = document.getElementById('step-text');
+            const progressFill = document.getElementById('progress-fill');
+            const browseBtn = document.getElementById('browse-btn');
+            const fileInput = document.getElementById('file-input');
+            const uploadArea = document.getElementById('upload-area');
+            const previewContainer = document.getElementById('preview-container');
+            const imagePreview = document.getElementById('image-preview');
+            const accountNumber = document.getElementById('account-number');
+            const copyBtn = document.getElementById('copy-btn');
+            const notification = document.getElementById('notification');
+            const viewDetails = document.getElementById('view-details');
+
+            // Current step tracking
+            let currentStep = 1;
+
+            // Update progress bar and step text
+            function updateProgress() {
+                stepText.textContent = `Step ${currentStep} of 3`;
+                progressFill.style.width = `${currentStep * 33}%`;
+            }
+
+            // Navigation functions
+            function goToStep(step) {
+                // Hide all steps
+                step1.classList.remove('active');
+                step2.classList.remove('active');
+                step3.classList.remove('active');
+                
+                // Show current step
+                if (step === 1) step1.classList.add('active');
+                if (step === 2) step2.classList.add('active');
+                if (step === 3) step3.classList.add('active');
+                
+                currentStep = step;
+                updateProgress();
+                
+                // Scroll to top of step
+                document.querySelector('.step.active').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            // Event listeners for navigation
+            nextStep1.addEventListener('click', () => goToStep(2));
+            nextStep2.addEventListener('click', () => goToStep(3));
+            prevStep2.addEventListener('click', () => goToStep(1));
+            prevStep3.addEventListener('click', () => goToStep(2));
+            
+            // File upload functionality
+            browseBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    
+                    // Check if file is an image
+                    if (file.type.match('image.*')) {
+                        const reader = new FileReader();
+                        
+                        reader.onload = function(e) {
+                            // Show preview
+                            imagePreview.src = e.target.result;
+                            previewContainer.classList.add('active');
+                            uploadArea.classList.add('active');
+                        }
+                        
+                        reader.readAsDataURL(file);
+                    } else {
+                        alert('Please select an image file (JPG, PNG)');
+                    }
+                }
+            });
+            
+            // Drag and drop functionality
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('active');
+            });
+            
+            uploadArea.addEventListener('dragleave', function() {
+                uploadArea.classList.remove('active');
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('active');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    
+                    // Check if file is an image
+                    if (file.type.match('image.*')) {
+                        const reader = new FileReader();
+                        
+                        reader.onload = function(e) {
+                            // Show preview
+                            imagePreview.src = e.target.result;
+                            previewContainer.classList.add('active');
+                        }
+                        
+                        reader.readAsDataURL(file);
+                    } else {
+                        alert('Please select an image file (JPG, PNG)');
+                    }
+                }
+            });
+            
+            // Copy account number functionality
+            copyBtn.addEventListener('click', function() {
+                const textArea = document.createElement('textarea');
+                textArea.value = accountNumber.textContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                // Show notification
+                notification.classList.add('show');
+                
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            });
+            
+            // View details button
+            viewDetails.addEventListener('click', function() {
+                alert('Redirecting to verification status page...');
+            });
+            
+            // Initialize progress bar
+            updateProgress();
+        });
+    </script>
+</body>
+</html>

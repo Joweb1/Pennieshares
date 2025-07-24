@@ -1,4 +1,19 @@
 <?php
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/kyc_functions.php';
+
+$kyc_status = getKycStatus($pdo, $user['id']);
+$show_kyc_popup = false;
+if ((!$kyc_status || $kyc_status['status'] !== 'verified') && !isset($_SESSION['kyc_popup_shown'])) {
+    $show_kyc_popup = true;
+    $_SESSION['kyc_popup_shown'] = true;
+}
+
+if (isset($_SESSION['show_kyc_popup'])) {
+    $show_kyc_popup = true;
+    unset($_SESSION['show_kyc_popup']);
+}
+
 require_once __DIR__ . '/../src/functions.php';
 require_once __DIR__ . '/../src/assets_functions.php';
 
@@ -10,8 +25,8 @@ $loggedInUserId = $loggedInUser['id'];
 // Fetch wallet balance
 $walletBalanceSV = getUserWalletBalance($pdo, $loggedInUserId);
 
-// Calculate Total Return (sum of asset_profit transactions)
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM wallet_transactions WHERE user_id = ? AND type = 'asset_profit'");
+// Calculate Total Return from user's total_return column
+$stmt = $pdo->prepare("SELECT total_return FROM users WHERE id = ?");
 $stmt->execute([$loggedInUserId]);
 $totalReturnSV = $stmt->fetchColumn() ?? 0;
 
@@ -28,6 +43,83 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':user_id' => $loggedInUserId, ':now' => $now]);
 $assetsWorthSV = $stmt->fetchColumn() ?? 0;
+
+// --- Daily Random Performance Data Generation ---
+$today = date('Y-m-d');
+
+// Fetch current user data including new performance columns
+$currentUserData = getUserByIdOrName($pdo, $loggedInUserId);
+
+if ($currentUserData['last_performance_update'] !== $today) {
+    // It's a new day, generate new random data
+    $newChartData = [
+        '6D' => [
+            'points' => [],
+            'performance' => round(mt_rand(-100, 100) / 10, 2), // -10.00 to 10.00
+            'change' => round(mt_rand(-50, 50) / 10, 2) // -5.00 to 5.00
+        ],
+        '6W' => [
+            'points' => [],
+            'performance' => round(mt_rand(-100, 100) / 10, 2),
+            'change' => round(mt_rand(-50, 50) / 10, 2)
+        ],
+        '6M' => [
+            'points' => [],
+            'performance' => round(mt_rand(-100, 100) / 10, 2),
+            'change' => round(mt_rand(-50, 50) / 10, 2)
+        ]
+    ];
+
+    // Generate random points for each timeframe
+    foreach ($newChartData as $timeframe => &$data) {
+        for ($i = 0; $i < 7; $i++) { // 7 points for the chart
+            $data['points'][] = mt_rand(20, 130); // Values between 20 and 130 for chart Y-axis
+        }
+    }
+
+    // Store the new data in the database
+    $updateStmt = $pdo->prepare("
+        UPDATE users SET 
+            performance_chart_data = :chart_data,
+            performance_value = :performance_value,
+            performance_change = :performance_change,
+            last_performance_update = :last_update
+        WHERE id = :user_id
+    ");
+
+    $updateStmt->execute([
+        ':chart_data' => json_encode($newChartData['6D']), // Store 6D data as default
+        ':performance_value' => $newChartData['6D']['performance'],
+        ':performance_change' => $newChartData['6D']['change'],
+        ':last_update' => $today,
+        ':user_id' => $loggedInUserId
+    ]);
+
+    $chartDataForJs = $newChartData;
+} else {
+    // Same day, use stored data
+    $chartDataForJs = [
+        '6D' => json_decode($currentUserData['performance_chart_data'], true),
+        '6W' => [
+            'points' => [], // These will need to be generated or stored separately if needed
+            'performance' => $currentUserData['performance_value'],
+            'change' => $currentUserData['performance_change']
+        ],
+        '6M' => [
+            'points' => [], // These will need to be generated or stored separately if needed
+            'performance' => $currentUserData['performance_value'],
+            'change' => $currentUserData['performance_change']
+        ]
+    ];
+    // For 6W and 6M, if you want dynamic data, you'd need to store them or generate them based on a seed
+    // For simplicity, I'm using the 6D stored data for performance/change for 6W/6M if not updated
+    // You might want to adjust this logic based on how you want 6W/6M to behave on subsequent visits
+    foreach (['6W', '6M'] as $timeframe) {
+        for ($i = 0; $i < 7; $i++) {
+            $chartDataForJs[$timeframe]['points'][] = mt_rand(20, 130);
+        }
+    }
+}
 
 // Include the intro template
 require_once __DIR__ . '/../assets/template/intro-template.php';
@@ -444,6 +536,72 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             font-size: 28px;
         }
     }
+
+    /* KYC Popup Styles */
+    .kyc-popup-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5); /* Dark overlay */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .kyc-popup-content {
+        background-color: var(--card-bg-color); /* Uses theme variable */
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        max-width: 350px;
+        width: 90%;
+        border: 1px solid var(--border-color); /* Uses theme variable */
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .kyc-popup-message {
+        color: var(--text-primary); /* Uses theme variable */
+        margin-bottom: 20px;
+        font-size: 1.1em;
+        transition: color 0.3s ease;
+    }
+
+    .kyc-popup-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+    }
+
+    .kyc-popup-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .kyc-popup-button-primary {
+        background-color: var(--accent-color); /* Uses theme variable */
+        color: var(--accent-text); /* Uses theme variable */
+    }
+
+    .kyc-popup-button-primary:hover {
+        opacity: 0.9;
+    }
+
+    .kyc-popup-button-secondary {
+        background-color: var(--bg-tertiary); /* Uses theme variable */
+        color: var(--text-primary); /* Uses theme variable */
+    }
+
+    .kyc-popup-button-secondary:hover {
+        background-color: var(--border-color); /* Uses theme variable */
+    }
   </style>
       <div class="content-wrapper">
       <div class="portfolio-header">
@@ -468,6 +626,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             </div>
           <p class="stat-value" id="total-return">SV <?php echo number_format($totalReturnSV, 2); ?></p>
         </div>
+        
         <div class="stat-card">
             <div class="stat-header">
                 <p class="stat-title">Assets Worth</p>
@@ -504,6 +663,8 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
           </div>
         </div>
       </div>
+
+      
       
       <div class="timeframe-selector">
         <div class="timeframe-tabs">
@@ -527,181 +688,162 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     <span class="widget-label">Real-time Profit</span>
     <span id="profit-rate" class="widget-value">+0.00%</span>
   </div>
-
+<?php if ($show_kyc_popup): ?>
+<div class="kyc-popup-overlay" id="kyc-popup-overlay">
+    <div class="kyc-popup-content">
+        <p class="kyc-popup-message">Please complete your KYC verification to access all features.</p>
+        <div class="kyc-popup-actions">
+            <a href="/kyc" class="kyc-popup-button kyc-popup-button-primary">Go to KYC</a>
+            <button class="kyc-popup-button kyc-popup-button-secondary" onclick="document.getElementById('kyc-popup-overlay').style.display='none';">Later</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- DOM Elements ---
-        const body = document.body;
-        const themeToggleButtons = document.querySelectorAll('.theme-toggle');
-        const menuToggleButton = document.getElementById('menu-toggle');
-        const navPanel = document.getElementById('nav-mobile'); // Corrected ID
-        const overlay = document.getElementById('nav-overlay'); // Corrected ID
+document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Elements ---
+    const themeToggleButtons = document.querySelectorAll('.theme-toggle');
+    const chartArea = document.getElementById('chart-area');
+    const chartLine = document.getElementById('chart-line');
+    const performanceValue = document.getElementById('performance-value');
+    const performanceChangeEl = document.getElementById('performance-change');
+    const selectedTimeframeEl = document.getElementById('selected-timeframe');
+    const timeframeTabs = document.querySelectorAll('.timeframe-tab');
+    const chartLabelsContainer = document.getElementById('chart-labels');
 
-        const chartArea = document.getElementById('chart-area');
-        const chartLine = document.getElementById('chart-line');
-        const performanceValue = document.getElementById('performance-value');
-        const performanceChangeEl = document.getElementById('performance-change');
-        const selectedTimeframeEl = document.getElementById('selected-timeframe');
-        const timeframeTabs = document.querySelectorAll('.timeframe-tab');
-        const chartLabelsContainer = document.getElementById('chart-labels');
+    const profitWidget = document.getElementById('profit-widget');
+    const profitRateEl = document.getElementById('profit-rate');
+    
+    // --- PHP-generated Chart Data ---
+    const chartData = <?php echo json_encode($chartDataForJs); ?>; // Must be inside .php file
 
-        const profitWidget = document.getElementById('profit-widget');
-        const profitRateEl = document.getElementById('profit-rate');
-        
-        // --- Sample Data (for Investment Performance - leave as is) ---
-        const chartData = {
-            '6D': { points: [109, 21, 41, 93, 33, 101, 61], performance: 12.34, change: 12.34 },
-            '6W': { points: [90, 45, 75, 110, 60, 95, 70], performance: 8.75, change: 8.75 },
-            '6M': { points: [70, 100, 50, 120, 80, 60, 90], performance: -3.20, change: -3.20 }
-        };
+    // --- Theme Toggle ---
+    const applyTheme = (theme) => {
+        document.documentElement.setAttribute('data-theme', theme);
+        document.querySelectorAll('.icon-sun').forEach(icon => icon.style.display = theme === 'light' ? 'block' : 'none');
+        document.querySelectorAll('.icon-moon').forEach(icon => icon.style.display = theme === 'dark' ? 'block' : 'none');
+        localStorage.setItem('theme', theme);
+    };
 
-        // --- Theme Toggle ---
-        const applyTheme = (theme) => {
-            document.documentElement.setAttribute('data-theme', theme); // Apply to html element
-            document.querySelectorAll('.icon-sun').forEach(icon => icon.style.display = theme === 'light' ? 'block' : 'none');
-            document.querySelectorAll('.icon-moon').forEach(icon => icon.style.display = theme === 'dark' ? 'block' : 'none');
-            localStorage.setItem('theme', theme);
-        };
-
-        themeToggleButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-theme');
-                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-                applyTheme(newTheme);
-            });
+    themeToggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
         });
-
-
-        // --- Chart Logic ---
-        const generatePath = (points) => {
-            const width = 472;
-            const step = width / (points.length - 1);
-            let path = `M0 ${points[0]}`;
-            for (let i = 1; i < points.length; i++) {
-                const x = i * step;
-                const prevX = (i - 1) * step;
-                const controlX1 = prevX + step / 2;
-                const controlX2 = x - step / 2;
-                path += ` C ${controlX1} ${points[i-1]}, ${controlX2} ${points[i]}, ${x} ${points[i]}`;
-            }
-            return path;
-        };
-        
-        const generateAreaPath = (points) => {
-            const path = generatePath(points);
-            const width = 472;
-            return `${path} L ${width} 150 L 0 150 Z`;
-        };
-
-        const getChartLabels = (timeframe) => {
-            if (timeframe === '6D') {
-                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const today = new Date().getDay();
-                return Array.from({ length: 6 }, (_, i) => days[(today - 5 + i + 7) % 7]);
-            }
-            if (timeframe === '6W') {
-                return ['5W', '4W', '3W', '2W', 'Last Wk', 'This Wk'];
-            }
-            if (timeframe === '6M') {
-                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                const currentMonth = new Date().getMonth();
-                return Array.from({ length: 6 }, (_, i) => monthNames[(currentMonth - 5 + i + 12) % 12]);
-            }
-            return [];
-        };
-
-        const updateChart = (timeframe) => {
-            const data = chartData[timeframe];
-            if (!data) return;
-
-            // Update text elements
-            const performanceSign = data.performance >= 0 ? '+' : '';
-            performanceValue.textContent = `${performanceSign}${data.performance.toFixed(2)}%`;
-            performanceValue.style.color = data.performance >= 0 ? 'var(--positive-color)' : 'var(--negative-color)';
-
-            const changeSign = data.change >= 0 ? '+' : '';
-            performanceChangeEl.textContent = `${changeSign}${data.change.toFixed(2)}%`;
-            performanceChangeEl.style.color = data.change >= 0 ? 'var(--positive-color)' : 'var(--negative-color)';
-            
-            selectedTimeframeEl.textContent = timeframe;
-            
-            // Update chart paths with transition
-            const newLinePath = generatePath(data.points);
-            const newAreaPath = generateAreaPath(data.points);
-            chartLine.setAttribute('d', newLinePath);
-            chartArea.setAttribute('d', newAreaPath);
-
-            // Update chart labels
-            chartLabelsContainer.innerHTML = '';
-            const labels = getChartLabels(timeframe);
-            labels.forEach(label => {
-                const p = document.createElement('p');
-                p.className = 'month-label';
-                p.textContent = label;
-                chartLabelsContainer.appendChild(p);
-            });
-        };
-
-        // --- Timeframe Selection ---
-        timeframeTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                timeframeTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const timeframe = tab.dataset.timeframe;
-                updateChart(timeframe);
-            });
-        });
-
-        // --- Wallet Balance and Assets Worth Conversion ---
-        const SV_TO_NAIRA_RATE = 100; // 1 SV = 100 Naira
-
-        const walletBalanceSVEl = document.getElementById('wallet-balance');
-        const walletNairaEl = document.getElementById('wallet-naira');
-        const assetsWorthSVEl = document.getElementById('assets-worth');
-        const assetsWorthNairaEl = document.getElementById('assets-worth-naira');
-
-        const convertAndDisplay = () => {
-            const walletBalanceSV = parseFloat(walletBalanceSVEl.textContent.replace('SV ', '').replace(/,/g, ''));
-            const assetsWorthSV = parseFloat(assetsWorthSVEl.textContent.replace('SV ', '').replace(/,/g, ''));
-
-            const walletBalanceNaira = walletBalanceSV * SV_TO_NAIRA_RATE;
-            const assetsWorthNaira = assetsWorthSV * SV_TO_NAIRA_RATE;
-
-            walletNairaEl.textContent = `₦ ${walletBalanceNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            assetsWorthNairaEl.textContent = `₦ ${assetsWorthNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        };
-
-        // --- Profit Widget Logic ---
-        const updateProfitWidget = () => {
-            // Simulate a new profit rate
-            const newRate = (Math.random() * 2.5 - 1).toFixed(2); // Random rate from -1.00 to +1.50
-            const sign = newRate >= 0 ? '+' : '';
-
-            // Update text and color
-            profitRateEl.textContent = `${sign}${newRate}%`;
-            profitRateEl.style.color = newRate >= 0 ? 'var(--positive-color)' : 'var(--negative-color)';
-
-            // Trigger "blink" animation
-            profitWidget.classList.add('updated');
-            setTimeout(() => {
-                profitWidget.classList.remove('updated');
-            }, 600);
-        };
-        
-        // --- Initialization ---
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        applyTheme(savedTheme);
-        
-        updateChart('6D'); // Initial chart load
-        convertAndDisplay(); // Initial conversion and display
-
-        // No need for randomizeValues as data comes from PHP now
-        // setInterval(randomizeValues, 7000); 
-
-        setInterval(updateProfitWidget, 6000); // Update profit widget every 6 seconds
-        updateProfitWidget(); // Initial call
     });
-  </script>
+
+    // --- Chart Logic ---
+    const generatePath = (points) => {
+        const width = 472;
+        const step = width / (points.length - 1);
+        let path = `M0 ${points[0]}`;
+        for (let i = 1; i < points.length; i++) {
+            const x = i * step;
+            const prevX = (i - 1) * step;
+            const controlX1 = prevX + step / 2;
+            const controlX2 = x - step / 2;
+            path += ` C ${controlX1} ${points[i-1]}, ${controlX2} ${points[i]}, ${x} ${points[i]}`;
+        }
+        return path;
+    };
+    
+    const generateAreaPath = (points) => {
+        const path = generatePath(points);
+        const width = 472;
+        return `${path} L ${width} 150 L 0 150 Z`;
+    };
+
+    const getChartLabels = (timeframe) => {
+        if (timeframe === '6D') {
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const today = new Date().getDay();
+            return Array.from({ length: 6 }, (_, i) => days[(today - 5 + i + 7) % 7]);
+        }
+        if (timeframe === '6W') return ['5W', '4W', '3W', '2W', 'Last Wk', 'This Wk'];
+        if (timeframe === '6M') {
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const currentMonth = new Date().getMonth();
+            return Array.from({ length: 6 }, (_, i) => months[(currentMonth - 5 + i + 12) % 12]);
+        }
+        return [];
+    };
+
+    const updateChart = (timeframe) => {
+        const data = chartData[timeframe];
+        if (!data) return;
+
+        const performanceSign = data.performance >= 0 ? '+' : '';
+        performanceValue.textContent = `${performanceSign}${data.performance.toFixed(2)}%`;
+        performanceValue.style.color = data.performance >= 0 ? 'var(--positive-color)' : 'var(--negative-color)';
+
+        const changeSign = data.change >= 0 ? '+' : '';
+        performanceChangeEl.textContent = `${changeSign}${data.change.toFixed(2)}%`;
+        performanceChangeEl.style.color = data.change >= 0 ? 'var(--positive-color)' : 'var(--negative-color)';
+        
+        selectedTimeframeEl.textContent = timeframe;
+        
+        chartLine.setAttribute('d', generatePath(data.points));
+        chartArea.setAttribute('d', generateAreaPath(data.points));
+
+        chartLabelsContainer.innerHTML = '';
+        getChartLabels(timeframe).forEach(label => {
+            const p = document.createElement('p');
+            p.className = 'month-label';
+            p.textContent = label;
+            chartLabelsContainer.appendChild(p);
+        });
+    };
+
+    timeframeTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            timeframeTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            updateChart(tab.dataset.timeframe);
+        });
+    });
+
+    // --- Wallet Conversion ---
+    const SV_TO_NAIRA_RATE = 100;
+    const walletBalanceSVEl = document.getElementById('wallet-balance');
+    const walletNairaEl = document.getElementById('wallet-naira');
+    const assetsWorthSVEl = document.getElementById('assets-worth');
+    const totalReturnEl = document.getElementById('total-return');
+    const assetsWorthNairaEl = document.getElementById('assets-worth-naira');
+
+    const convertAndDisplay = () => {
+        const walletBalanceSV = parseFloat(walletBalanceSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
+        const assetsWorthSV = parseFloat(assetsWorthSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 1; // avoid /0
+        const totalReturnSV = parseFloat(totalReturnEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
+
+        const walletBalanceNaira = walletBalanceSV * SV_TO_NAIRA_RATE;
+        const assetsWorthNaira = (totalReturnSV / assetsWorthSV) * 100;
+
+        walletNairaEl.textContent = `₦ ${walletBalanceNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        assetsWorthNairaEl.textContent = `+${assetsWorthNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+    };
+
+    // --- Profit Widget ---
+    const updateProfitWidget = () => {
+        const newRate = parseFloat((Math.random() * 2.5 - 1).toFixed(2)); // number
+        const sign = newRate >= 0 ? '+' : '';
+        profitRateEl.textContent = `${sign}${newRate}%`;
+        profitRateEl.style.color = newRate >= 0 ? 'var(--positive-color)' : 'var(--negative-color)';
+
+        profitWidget.classList.add('updated');
+        setTimeout(() => profitWidget.classList.remove('updated'), 600);
+    };
+    
+    // --- Init ---
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+    
+    updateChart('6D');
+    convertAndDisplay();
+    updateProfitWidget();
+    setInterval(updateProfitWidget, 6000);
+});
+</script>
 
 <?php
 // Include the end template

@@ -1,6 +1,12 @@
 <p>Hi {{username}},</p>
 <p>A new transaction has been recorded in your wallet.</p>
 <p><strong>Type:</strong> {{transaction_type}}</p>
-<p><strong>Amount:</strong> {{amount}}</p>
+<p><strong>Amount:</strong> SV{{amount}}</p>
 <p><strong>Description:</strong> {{description}}</p>
 <p><strong>Date:</strong> {{date}}</p>
+{{#if asset_name}}
+<p><strong>Asset:</strong> {{asset_name}}</p>
+{{/if}}
+{{#if asset_image}}
+<img src="{{asset_image}}" alt="{{asset_name}}" style="max-width: 100px; height: auto;">
+{{/if}}

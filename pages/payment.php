@@ -3,36 +3,42 @@ require_once __DIR__ . '/../src/functions.php';
 check_auth();
 
 $user = $_SESSION['user'];
-$isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-          strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+// Handle retry action
+if (isset($_GET['action']) && $_GET['action'] === 'retry') {
+    deletePaymentProofForUser($pdo, $user['id']);
+    header("Location: payment"); // Redirect to the clean payment page
+    exit;
+}
+
+// Check for existing, pending payment proof
+$stmt = $pdo->prepare("SELECT id FROM payment_proofs WHERE user_id = ? AND status = 1");
+$stmt->execute([$user['id']]);
+$proofExists = $stmt->fetch() ? true : false;
 
 $error = '';
 $success = '';
-// Handle file upload
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $target_dir = "uploads/";
-        $target_file = $target_dir . basename($_FILES["file"]["name"]);
-        
-        $check = move_uploaded_file($_FILES["file"]["tmp_name"], $target_file);
 
-        if ($check) {
+// Handle file upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
+    if ($_FILES['file']['error'] === UPLOAD_ERR_OK) {
+        $target_dir = "uploads/";
+        $fileExtension = pathinfo($_FILES["file"]["name"], PATHINFO_EXTENSION);
+        $target_file = $target_dir . uniqid('proof_' . $user['id'] . '_', true) . '.' . $fileExtension;
+        
+        if (move_uploaded_file($_FILES["file"]["tmp_name"], $target_file)) {
             try {
                 $stmt = $pdo->prepare("SELECT file_path FROM payment_proofs WHERE user_id = ?");
                 $stmt->execute([$user['id']]);
                 $existingProof = $stmt->fetch();
                 
-                // Delete old file if exists
-                if ($existingProof) {
-                $oldFilePath = __DIR__ . '/../' . $existingProof['file_path'];
-                if (file_exists($oldFilePath)) {
-                unlink($oldFilePath);
-                }
+                if ($existingProof && file_exists($existingProof['file_path'])) {
+                    unlink($existingProof['file_path']);
                 }
                 
-                // Insert or update proof
                 $stmt = $pdo->prepare("
-                INSERT INTO payment_proofs (user_id, file_path)
-                VALUES (:user_id, :file_path)
+                INSERT INTO payment_proofs (user_id, file_path, status)
+                VALUES (:user_id, :file_path, 1)
                 ON CONFLICT(user_id) DO UPDATE SET
                 file_path = excluded.file_path,
                 uploaded_at = CURRENT_TIMESTAMP,
@@ -40,718 +46,743 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 
                 $stmt->execute([
-                ':user_id' => $user['id'],
-                ':file_path' => $target_file
+                    ':user_id' => $user['id'],
+                    ':file_path' => $target_file
                 ]);
                 
-                $success = "Payment proof " . ($existingProof ? "updated" : "uploaded") . " successfully!";
+                header("Location: payment?upload_success=true");
+                exit;
                 
             } catch (PDOException $e) {
-                $error = "Error saving payment proof".$e;
+                $error = "Error saving payment proof: " . $e->getMessage();
             }
         } else {
-            $error = "Error uploading file";
+            $error = "Error moving uploaded file.";
         }
+    } else {
+        $error = "Error uploading file. Code: " . $_FILES['file']['error'];
     }
+}
+
+$initialStep = 1;
+if (isset($_GET['upload_success'])) {
+    $initialStep = 3;
+} elseif ($proofExists) {
+    $initialStep = 4;
+}
 
 ?>
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-	  <meta charset="UTF-8" />
-	  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-	  <title>Payment Verification</title>
-	  <!-- Font Awesome (CDN) -->
-	  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-	  <!-- CSS -->
-	  <style type="text/css">
-	  	* {
-	  	margin: 0;
-	  	padding: 0;
-	  	box-sizing: border-box;
-	  	}
-	  	
-	  	body {
-	  	font-family: System, sans-serif;
-	  	background-color: #f5f5f5;
-	  	color: #000;
-	  	}
-	  	.up-circle {
-	  	top:0;
-	  	left: 50%;
-	  	transform: translateX(-50%);
-	  	position:absolute;
-	  	background: linear-gradient(135deg, rgba(0,0,250,1) 0%, rgba(2,0,102,1) 100%);
-	  	height: 30vh; /* Adjusted height */
-	  	width: 100vw; /* Adjusted width */
-	  	z-index:-90;
-	  	border-bottom-left-radius: 50% 20%; /* Adjusted radius */
-	  	border-bottom-right-radius: 50% 20%; /* Adjusted radius */
-	  	}
-	  	.cont {
-	  	overflow-x:hidden;
-	  	width:100vw;
-	  	min-height:100vh; /* Changed to min-height */
-	  	}
-	  	
-	  	/* HEADER (TOP SECTION) */
-	  	.header-container {
-	  	padding: 20px;
-	  	position: relative;
-	  	/* Removed border-radius from here as up-circle handles it */
-	  	}
-	  	
-	  	/* Top row with username and icons */
-	  	.header-top {
-	  	display: flex;
-	  	justify-content: space-around;
-	  	align-items: center;
-	  	margin-bottom: 20px;
-	  	}
-	  	.dashboard {
-	  	display:flex;
-	  	color:white;
-	  	background: linear-gradient(135deg, rgba(87,71,255,0.61), rgba(190,28,99,0.61) , rgba(2,0,102,0.61) );
-	  	margin:30px 0px;
-	  	padding:0;
-	  	margin-bottom:5px;
-	  	justify-content:space-around;
-	  	align-items:center;
-	  	border-radius:3px;
-	  	box-shadow: 0 0px 20px rgba(0,0,0,0.21);
-	  	}
-	  	
-	  	/* Apply this class to the element containing your text */
-	  	.gradient-gold {
-	  	/* Create a linear gradient with multiple gold tones */
-	  	background: linear-gradient(130deg, 
-	  	rgba(175,148,0,1),  /* Darkish gold */
-	  	rgba(220,200,40,1), /* Classic gold */
-	  	rgba(238,223,48,1), /* Bright, shining gold */
-	  	rgba(234,140,5,1),  /* Warm, reflective gold */
-	  	rgba(125,58,0,1),  /* Darkish gold */
-	  	rgba(220,200,40,1), /* Classic gold */
-	  	rgba(238,223,48,1), /* Bright, shining gold */
-	  	rgba(234,140,5,1),  /* Warm, reflective gold */
-	  	rgba(125,58,0,1),  /* Darkish gold */
-	  	rgba(220,200,40,1), /* Classic gold */
-	  	rgba(238,223,48,1), /* Bright, shining gold */
-	  	rgba(234,140,5,1),  /* Warm, reflective gold */
-	  	rgba(125,58,0,1),  /* Darkish gold */
-	  	rgba(220,200,40,1), /* Classic gold */
-	  	rgba(238,223,48,1), /* Bright, shining gold */
-	  	rgba(234,140,5,1),  /* Warm, reflective gold */
-	  	rgba(125,58,0,1),  /* Darkish gold */
-	  	rgba(220,200,40,1), /* Classic gold */
-	  	rgba(238,223,48,1), /* Bright, shining gold */
-	  	rgba(234,140,5,1)  /* Warm, reflective gold */
-	  	);
-	  	background-size: 300%;
-	  	
-	  	/* Use background clip to show gradient through the text */
-	  	-webkit-background-clip: text;
-	  	-webkit-text-fill-color: transparent;
-	  	background-clip: text;
-	  	color: transparent;
-	  	
-	  	/* Animate the background for a shimmering effect */
-	  	animation: shine 12s linear infinite;
-	  	}
-	  	
-	  	/* Define the animation */
-	  	@keyframes shine {
-	  	0% {
-	  	background-position: 0%;
-	  	}
-	  	50% {
-	  	background-position: 100%;
-	  	}
-	  	100% {
-	  	background-position: 0%;
-	  	}
-	  	}
-	  	/* Partnering Code & Total Partner */
-	  	.code-value {
-	  	font-size: 18px;
-	  	color: #ff5722 !important; /* Orange for code */
-	  	background:white;
-	  	width:auto;
-	  	margin-top: 5px;
-	  	font-weight:bold;
-	  	}
-	  	
-	  	.partner-number {
-	  	font-size: 30px; /* Blue for total partner number */
-	  	margin-top: 5px;
-	  	font-weight:bold;
-	  	border:1px solid black;
-	  	}
-	  	/* RESPONSIVE DESIGN */
-	  	@media (max-width: 768px) {
-	  	.partner-stats {
-	  	flex-direction: column;
-	  	}
-	  	.payment-container {
-	  	margin: 10px auto; /* Adjust margin for smaller screens */
-	  	padding: 0 10px; /* Adjust padding for smaller screens */
-	  	}
-	  	.back {
-	  	top: 15px; /* Adjust top position for smaller screens */
-	  	left: 15px; /* Adjust left position for smaller screens */
-	  	}
-	  	}
-	  
-	    /* Add to existing styles */
-	    .payment-container {
-	      max-width: 600px;
-	      margin: 20px auto;
-	      padding: 0 20px;
-	    }
-	
-	    .payment-card {
-	      background: white;
-	      border-radius: 20px;
-	      padding: 30px 25px;
-	      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-	      transform: translateY(0);
-	      transition: transform 0.3s ease;
-	    }
-	
-	    .payment-card:hover {
-	      transform: translateY(-5px);
-	    }
-	
-	    .payment-header {
-	      text-align: center;
-	      margin-bottom: 0px;
-	    }
-	
-	    .payment-title {
-	      color: #333;
-	      font-size: 23px;
-	      letter-spacing:.21px;
-	      margin-bottom: 5px;
-	      font-weight: 700;
-	    }
-	
-	    .payment-subtitle {
-	      color: #666;
-	      font-size: 14px;
-	    }
-	
-	    .payment-details {
-	      background: #f9f9f9;
-	      border-radius: 15px;
-	      padding: 20px;
-	      margin: 25px 0;
-	      border: 2px solid #e8e8e8;
-	    }
-	
-	    .detail-row {
-	      display: flex;
-	      justify-content: space-between;
-	      align-items: center;
-	      padding: 12px 0;
-	      border-bottom: 1px solid #eee;
-	    }
-	
-	    .detail-row:last-child {
-	      border-bottom: none;
-	    }
-	
-	    .detail-label {
-	      color: #555;
-	      font-weight: 500;
-	    }
-	
-	    .detail-value {
-	      color: #020066;
-	      font-weight: 600;
-	      font-size: 16px;
-	    }
-	
-	    .upload-btn {
-	      background: linear-gradient(45deg, #2ecc71, #27ae60);
-	      color: white;
-	      border: none;
-	      padding: 18px 35px;
-	      border-radius: 30px;
-	      font-weight: 600;
-	      cursor: pointer;
-	      transition: all 0.3s ease;
-	      display: flex;
-	      align-items: center;
-	      gap: 12px;
-	      margin: 0 auto;
-	      box-shadow: 0 5px 15px rgba(46,204,113,0.3);
-	    }
-	
-	    .upload-btn:hover {
-	      transform: scale(1.05);
-	      box-shadow: 0 8px 20px rgba(46,204,113,0.4);
-	    }
-	
-	    .upload-btn i {
-	      font-size: 20px;
-	    }
-	
-	    .file-input {
-	      display: none;
-	    }
-	
-	    .security-note {
-	      text-align: center;
-	      color: #666;
-	      font-size: 14px;
-	      margin-top: 25px;
-	      opacity: 0;
-	      animation: fadeIn 1s ease forwards;
-	    }
-	
-	    .bank-logo {
-	      width: 80px;
-	      height: 80px;
-	      background: #2ecc71;
-	      border-radius: 50%;
-	      margin: 20px auto 10px;
-	      display: flex;
-	      align-items: center;
-	      justify-content: center;
-	      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-	    }
-	
-	    .bank-logo i {
-	      color: white;
-	      font-size: 40px;
-	    }
-	
-	    @keyframes fadeIn {
-	      from { opacity: 0; transform: translateY(10px); }
-	      to { opacity: 1; transform: translateY(0); }
-	    }
-	
-	    .pulse {
-	      animation: pulse 2s infinite;
-	    }
-	
-	    @keyframes pulse {
-	      0% { transform: scale(1); }
-	      50% { transform: scale(1.05); }
-	      100% { transform: scale(1); }
-	    }
-	
-	    .success-message {
-	      color: #2ecc71;
-	      font-size: 18px;
-	      text-align: center;
-	      margin: 10px 0;
-	      opacity: 1;
-	      transition: opacity 0.3s ease;
-	    }
-	    
-	    
-	    
-	    /* Add these styles to existing CSS */
-	    .upload-modal {
-	    display: none;
-	    position: fixed;
-	    top: 0;
-	    left: 0;
-	    width: 100%;
-	    height: 100%;
-	    background: rgba(0,0,0,0.5);
-	    backdrop-filter: blur(5px);
-	    z-index: 1000;
-	    animation: fadeFlow 0.5s ease;
-	    }
-	    
-	    .modal-content {
-	    background: white;
-	    width: 90%;
-	    max-width: 500px;
-	    margin: 0vh auto;
-	    border-radius: 15px;
-	    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-	    transform: translateY(15vh);
-	    translate: 0.6s ease;
-	    animation: transformDone 0.8s ease;
-	    }
-	    
-	    .modal-header {
-	    padding: 1.5rem;
-	    border-bottom: 1px solid #eee;
-	    display: flex;
-	    justify-content: space-between;
-	    align-items: center;
-	    }
-	    
-	    .modal-header h3 {
-	    color: #333;
-	    margin: 0;
-	    font-size: 1.5rem;
-	    }
-	    
-	    .close-modal {
-	    cursor: pointer;
-	    font-size: 1.8rem;
-	    color: #666;
-	    transition: color 0.3s ease;
-	    }
-	    
-	    .close-modal:hover {
-	    color: #333;
-	    }
-	    
-	    .modal-body {
-	    padding: 1.5rem;
-	    }
-	    
-	    .upload-area {
-	    border: 2px dashed #2ecc71;
-	    border-radius: 12px;
-	    padding: 2rem;
-	    text-align: center;
-	    transition: all 0.3s ease;
-	    position: relative;
-	    }
-	    
-	    .upload-area.dragover {
-	    background: rgba(46,204,113,0.1);
-	    border-color: #27ae60;
-	    }
-	    
-	    .choose-file-btn {
-	    background: #2ecc71;
-	    color: white;
-	    border: none;
-	    padding: 12px 25px;
-	    border-radius: 25px;
-	    font-weight: 600;
-	    cursor: pointer;
-	    transition: all 0.3s ease;
-	    display: inline-flex;
-	    align-items: center;
-	    gap: 10px;
-	    }
-	    
-	    .choose-file-btn:hover {
-	    background: #27ae60;
-	    transform: translateY(-2px);
-	    }
-	    
-	    .preview-container {
-	    margin: 1rem 0;
-	    position: relative;
-	    }
-	    
-	    .preview-image {
-	    max-width: 100%;
-	    max-height: 200px;
-	    border-radius: 8px;
-	    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-	    }
-	    
-	    .supported-files {
-	    color: #666;
-	    font-size: 0.9rem;
-	    margin-top: 1rem;
-	    }
-	    
-	    .modal-footer {
-	    padding: 1.5rem;
-	    border-top: 1px solid #eee;
-	    display: flex;
-	    justify-content: flex-end;
-	    gap: 1rem;
-	    }
-	    
-	    .cancel-btn {
-	    background: #e74c3c;
-	    color: white;
-	    border: none;
-	    padding: 10px 20px;
-	    border-radius: 20px;
-	    cursor: pointer;
-	    transition: all 0.3s ease;
-	    }
-	    
-	    .cancel-btn:hover {
-	    background: #c0392b;
-	    }
-	    
-	    .submit-btn {
-	    background: #2ecc71;
-	    color: white;
-	    border: none;
-	    padding: 10px 25px;
-	    border-radius: 20px;
-	    cursor: pointer;
-	    transition: all 0.3s ease;
-	    opacity: 0.7;
-	    }
-	    
-	    .submit-btn:not([disabled]) {
-	    opacity: 1;
-	    transform: translateY(-2px);
-	    box-shadow: 0 5px 15px rgba(46,204,113,0.3);
-	    }
-	    
-	    .upload-status {
-	    color: #666;
-	    font-size: 0.9rem;
-	    margin-top: 1rem;
-	    text-align: center;
-	    }
-	    .logo-img {
-	    width: 80px;
-	    height:auto;
-	    }
-	    
-	    @keyframes fadeFlow {
-	    from { opacity: 0; }
-	    to { opacity: 1; }
-	    }
-	    @keyframes transformDone {
-	    from{transform:translateY(-10vh);}
-	    to { transform:translateY(15vh); }
-	    }
-	    #fileInput {
-	    	position:absolute;
-	    	top:0px;
-	    	left:0px;
-	    	width:100%;
-	    	height:100%;
-	    	opacity:0;
-	    }
-	    .back{
-	    background:transparent;
-	    color:white;
-	    border-radius:10px;
-	    font-size:25px;
-	    position:absolute;
-	    z-index:2;
-	    top:10px;
-	    font-weight:600;
-	    left:10px;
-	    padding:10px 10px;
-	    text-align:center;
-	    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-	    }
-	    a{
-	    color:inherit;
-	    text-decoration:none;
-	    }
-	  </style>
-	</head>
-	<body>
-	  <div class="cont">
-	    <div class="header-container">
-	      <div class="up-circle" style="background: linear-gradient(135deg, #2ecc71 0%, #020066 100%);"></div>
-	      <div class="payment-header">
-	        <div class="bank-logo pulse">
-	          <img src="assets/images/logo.png" class="logo-img"  >
-	        </div>
-	      </div>
-	    </div>
-	
-	    <div class="payment-container">
-	      <div class="payment-card">
-	        <h1 class="payment-title">Account Verification</h1>
-	        <p class="payment-subtitle">Complete your analyst verification by making payment</p>
-	
-	        <div class="payment-details">
-	            <div class="detail-row">
-	            <span class="detail-label">Pay Amount:</span>
-	            <span class="detail-value">N500</span>
-	          </div>
-	          <div class="detail-row">
-	          <span class="detail-label">Username:</span>
-	          <span class="detail-value"><?= htmlspecialchars($user['username']) ?></span>
-	          </div>
-	          <div class="detail-row">
-	            <span class="detail-label">Bank:</span>
-	            <span class="detail-value">Moniepoint</span>
-	          </div>
-	          <div class="detail-row">
-	            <span class="detail-label">Account No:</span>
-	            <span class="detail-value">9135580911</span>
-	          </div>
-	          <div class="detail-row">
-	            <span class="detail-label">Account Name:</span>
-	            <span class="detail-value">Uroh Patience</span>
-	          </div>
-	        </div>
-	
-	        <label>
-	          <button class="upload-btn">
-	            <i class="fas fa-file-upload"></i>
-	            Upload Payment Proof
-	          </button>
-	        </label>
-	
-	        <div class="security-note">
-	          <i class="fas fa-lock"></i> Your information is securely encrypted
-	        </div>
-	        <div>
-	        	<?php if (isset($error) && $error !== ''): ?>
-	        	<div class="error-message"><i class="fas fa-times-circle"></i>
-	        	<?= $error ?>
-	        	</div>
-	        	<?php endif; ?>
-	        	
-	        	<?php if (isset($success) && $success !== ''): ?>
-	        	<div class="success-message"><i class="fas fa-check-circle"></i>
-	        	<?= $success ?>
-	        	</div>
-	        	<?php endif; ?>
-	        </div>
-	        <!-- In your payment.php HTML -->
-	        <div class="current-proof-section">
-	        <?php
-	        $stmt = $pdo->prepare("SELECT file_path, uploaded_at FROM payment_proofs WHERE user_id = ?");
-	        $stmt->execute([$user['id']]);
-	        $currentProof = $stmt->fetch();
-	        ?>
-	        
-	        <?php if ($currentProof): ?>
-	        <div class="current-proof">
-	        <h4>Current Payment Proof:</h4>
-	        <img src="<?= htmlspecialchars($currentProof['file_path']) ?>" 
-	        alt="Current payment proof" 
-	        class="proof-preview">
-	        <?php if (!empty($currentProof['uploaded_at'])): ?>
-	        <p>Uploaded on: <?= date('M j, Y H:i', strtotime($currentProof['uploaded_at'])) ?></p>
-	        <?php endif; ?>
-	        </div>
-	        <?php endif; ?>
-	        </div>
-	        
-	        <style>
-	        .proof-preview {
-	        max-width: 450px;
-	        width:100%;
-	        border-radius: 8px;
-	        margin-top: 10px;
-	        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-	        }
-	        
-	        .current-proof-section {
-	        margin-top: 20px;
-	        padding: 15px;
-	        background: #f8f9fa;
-	        border-radius: 8px;
-	        }
-	        </style>
-	      </div>
-	    </div>
-	    <div class="back" ><a href="dashboard" ><i class="fas fa-arrow-left" ></i></a></div>
-	  </div>
-	<!-- In your HTML, modify the upload section -->
-	<div class="upload-modal" id="uploadModal">
-	<div class="modal-content" id="uploadContent">
-	<div class="modal-header">
-	<h3>Upload Payment Proof</h3>
-	<span class="close-modal">&times;</span>
-	</div>
-	<form method="post" enctype="multipart/form-data" >
-	<div class="modal-body">
-	<div class="upload-area" id="dropZone">
-	<input type="file" name="file"  id="fileInput" accept="image/*" >
-	<div class="preview-container" id="previewContainer"></div>
-	<button class="choose-file-btn" id="chooseFileBtn">
-	<i class="fas fa-cloud-upload-alt"></i>
-	Select Image File
-	</button>
-	<p class="supported-files">Supported formats: JPG, PNG (Max 2MB)</p>
-	</div>
-	<div class="upload-status" id="uploadStatus"></div>
-	</div>
-	<div class="modal-footer">
-	<button class="cancel-btn">Cancel</button>
-	<input type="submit"    class="submit-btn" value="✅ Comfirm Upload" >
-	</div>
-	</form>
-	</div>
-	</div>
-	
-	<script>
-		
-	  // Add this JavaScript
-	  const modal = document.getElementById('uploadModal');
-	  const chooseFileBtn = document.getElementById('chooseFileBtn');
-	  const fileInput = document.getElementById('fileInput');
-	  const previewContainer = document.getElementById('previewContainer');
-	  const submitBtn = document.getElementById('submitBtn');
-	  const dropZone = document.getElementById('dropZone');
-	  const uploadStatus = document.getElementById('uploadStatus');
-	  const successCheck = document.getElementById('successCheck');
-	
-	  // Open modal when clicking upload button
-	  document.querySelector('.upload-btn').addEventListener('click', () => {
-	    modal.style.display = 'block';
-	    document.body.style.overflow = 'hidden';
-	  });
-	
-	  // Close modal handlers
-	  document.querySelectorAll('.close-modal, .cancel-btn').forEach(btn => {
-	    btn.addEventListener('click', closeModal);
-	  });
-	
-	  // Handle file selection
-	
-	  // Handle file input change
-	  fileInput.addEventListener('change', handleFileSelect);
-	
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Payment Process</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;600;700&family=Noto+Sans:wght@400;500;700;900">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0c7ff2;
+            --primary-light: #e0f0ff;
+            --primary-dark: #0d47a1;
+            --secondary-color: #4caf50;
+            --warning-color: #ff9800;
+            --header-bg: #ffffff;
+            --body-bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-dark: #0d141c;
+            --text-medium: #4a5568;
+            --text-light: #718096;
+            --progress-bg: #e2e8f0;
+            --progress-active: #0c7ff2;
+            --button-primary: #0c7ff2;
+            --button-primary-hover: #0d47a1;
+            --button-secondary: #e2e8f0;
+            --button-secondary-hover: #d1d9e6;
+            --button-text: #ffffff;
+            --input-bg: #f1f5f9;
+            --placeholder-color: #94a3b8;
+            --upload-border: #cbd5e1;
+            --success-color: #4caf50;
+            --error-color: #ef4444;
+        }
 
-	
-	  function handleFileSelect() {
-	    const file = fileInput.files[0];
-	    if (!file) return;
-	
-	    // Validate file
-	    if (!file.type.startsWith('image/')) {
-	      uploadStatus.innerHTML = '⚠️ Please select an image file';
-	      submitBtn.disabled = true;
-	      return;
-	    }
-	
-	    if (file.size > 2 * 1024 * 1024) {
-	      uploadStatus.innerHTML = '⚠️ File size exceeds 2MB limit';
-	      submitBtn.disabled = true;
-	      return;
-	    }
-		
-		document.getElementById("uploadContent").style.transform="translateY(0vh)";
-		
-	    // Preview image
-	    const reader = new FileReader();
-	    reader.onload = (e) => {
-	      previewContainer.innerHTML = `
-	        <img src="${e.target.result}" class="preview-image" alt="Payment proof preview">
-	      `;
-	      submitBtn.disabled = false;
-	      uploadStatus.innerHTML = '✅ File ready for upload';
-	    };
-	    reader.readAsDataURL(file);
-	  }
+        html[data-theme='dark'] {
+            --primary-color: #3b82f6;
+            --primary-light: #1e3a8a;
+            --primary-dark: #60a5fa;
+            --secondary-color: #4ade80;
+            --warning-color: #f59e0b;
+            --header-bg: #111827;
+            --body-bg: #0d141c;
+            --card-bg: #111827;
+            --border-color: #374151;
+            --text-dark: #f9fafb;
+            --text-medium: #9ca3af;
+            --text-light: #6b7280;
+            --progress-bg: #374151;
+            --progress-active: #3b82f6;
+            --button-primary: #3b82f6;
+            --button-primary-hover: #60a5fa;
+            --button-secondary: #1f2937;
+            --button-secondary-hover: #374151;
+            --button-text: #ffffff;
+            --input-bg: #1f2937;
+            --placeholder-color: #6b7280;
+            --upload-border: #4b5563;
+            --success-color: #4ade80;
+            --error-color: #f87171;
+        }
 
-	  function closeModal() {
-	    modal.style.display = 'none';
-	    document.getElementById("uploadContent").style.transform="translateY(15vh)";
-	    document.body.style.overflow = 'auto';
-	    // Reset form
-	    fileInput.value = '';
-	    previewContainer.innerHTML = '';
-	    submitBtn.disabled = true;
-	    uploadStatus.innerHTML = '';
-	  }
-	
-	  // Close modal when clicking outside
-	  window.onclick = (e) => {
-	    if (e.target === modal) closeModal();
-	  }
-	    // File upload feedback animation
-	
-	  </script>
-	</body>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Noto Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--body-bg);
+            min-height: 100vh;
+            color: var(--text-dark);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1.25rem;
+        }
+
+        .breadcrumb {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem 1rem 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .breadcrumb a {
+            color: #4b739b;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb span {
+            color: var(--text-dark);
+        }
+
+        .title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0.5rem 0 1.5rem;
+            background: linear-gradient(45deg, var(--primary-dark), var(--text-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        .title::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: var(--primary-dark);
+            border-radius: 2px;
+        }
+        
+        .profile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10% 0;
+            position: relative;
+        }
+        
+        .profile-picture-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .profile-picture {
+            width: 7rem;
+            height: 7rem;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .progress-container {
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+
+        .step-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .step-number {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-medium);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background-color: var(--progress-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 0.2rem;
+            margin: 1rem 0;
+            color: var(--text-medium);
+            position: relative;
+        }
+
+        .payment-method {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background-color: var(--card-bg);
+            border-radius: 0.75rem;
+            margin: 0.75rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .payment-method:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .payment-icon {
+            width: 3.5rem;
+            height: 3.5rem;
+            background-color: var(--button-secondary);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--primary-dark);
+            font-size: 1.5rem;
+        }
+
+        .payment-info {
+            flex-grow: 1;
+        }
+
+        .payment-info p {
+            margin: 0.25rem 0;
+        }
+
+        .account-details {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .account-number {
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+
+        .copy-btn:hover {
+            background-color: rgba(25, 118, 210, 0.1);
+            color: var(--primary-dark);
+        }
+
+        .account-name {
+            font-weight: 500;
+            color: var(--text-medium);
+        }
+
+        .account-type {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            background-color: rgba(25, 118, 210, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .amount-display {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            color: var(--success-color);
+            margin: 1rem 0;
+            padding: 1.5rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        .upload-container {
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--upload-border);
+            border-radius: 1rem;
+            padding: 2.5rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 1.5rem;
+            background-color: var(--card-bg);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 220px;
+        }
+
+        .upload-area.active {
+            border-color: var(--primary-color);
+            background-color: rgba(25, 118, 210, 0.05);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        .upload-text h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--primary-dark);
+        }
+
+        .upload-text p {
+            color: var(--text-medium);
+            font-size: 0.95rem;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .preview-container {
+            display: none;
+            width: 100%;
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        .preview-title {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--primary-dark);
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+            margin: 0 auto;
+            display: block;
+        }
+
+        .button {
+            height: 3rem;
+            padding: 0 1.75rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .button i {
+            font-size: 1.1rem;
+        }
+
+        .button-primary {
+            background: linear-gradient(135deg, var(--primary-dark), var(--text-dark));
+            color: var(--button-text);
+            box-shadow: 0 4px 10px rgba(25, 118, 210, 0.3);
+        }
+
+        .button-primary:hover {
+            background: linear-gradient(135deg, var(--primary-dark), #0a3d8f);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(25, 118, 210, 0.4);
+        }
+
+        .button-secondary {
+            background-color: var(--button-secondary);
+            color: var(--text-dark);
+        }
+
+        .button-secondary:hover {
+            background-color: var(--button-secondary-hover);
+            transform: translateY(-2px);
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            padding: 1.5rem 1rem 0.5rem;
+            gap: 1rem;
+        }
+
+        .step {
+            display: none;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            overflow: hidden;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .step.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .confirmation-content {
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
+        .confirmation-icon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            animation: bounce 1s ease;
+        }
+        .confirmation-icon.success { color: var(--success-color); }
+        .confirmation-icon.pending { color: var(--warning-color); }
+
+        .confirmation-content p {
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            color: var(--text-medium);
+            line-height: 1.6;
+            max-width: 500px;
+            margin: 0 auto 2rem;
+        }
+
+        .center-button {
+            justify-content: center;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background-color: var(--success-color);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(-20px);}
+            60% {transform: translateY(-10px);}
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .profile-picture {
+                width: 6rem;
+                height: 6rem;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span>Account number copied to clipboard!</span>
+    </div>
+
+    <main>
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="logout">Logout</a> <span>/</span>
+                <span>Payment</span>
+            </div>
+            
+            <h1 class="title">Get Licensed</h1>
+            
+            <div class="profile-header">
+                <div class="profile-picture-wrapper">
+                    <img alt="Platform Logo" class="profile-picture" src="assets/images/logo.png" />
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="step-info">
+                    <span class="step-number" id="step-text">Step 1 of 3</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+            
+            <form method="POST" action="payment" enctype="multipart/form-data" id="payment-form">
+                <!-- Step 1: Payment Details -->
+                <div class="step" id="step1">
+                    <h3 class="section-title">Amount</h3>
+                    <div class="amount-display">₦1,000.00</div>
+                    <h3 class="section-title">Payment Method</h3>
+                    <div class="payment-method">
+                        <div class="payment-icon"><i class="fas fa-building"></i></div>
+                        <div class="payment-info">
+                            <p class="account-name">Uroh Patience</p>
+                            <div class="account-details">
+                                <span class="account-number" id="account-number">9135580911</span>
+                                <button type="button" class="copy-btn" id="copy-btn" title="Copy account number"><i class="far fa-copy"></i></button>
+                            </div>
+                            <span class="account-type">Moniepoint MFB • Bank account</span>
+                        </div>
+                    </div>
+                    <div class="button-group">
+                        <button type="button" class="button button-primary" id="next-step1">Continue <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Step 2: Payment Proof -->
+                <div class="step" id="step2">
+                    <h3 class="section-title">Upload Payment Proof</h3>
+                    <div class="upload-container">
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-text">
+                                <h3>Drag & Drop or Browse</h3>
+                                <p>Upload a screenshot or receipt of your payment (JPG, PNG)</p>
+                            </div>
+                            <button type="button" class="button button-secondary" id="browse-btn"><i class="fas fa-folder-open"></i> Browse Files</button>
+                            <input type="file" name="file" id="file-input" accept="image/*" style="display: none;">
+                        </div>
+                        <div class="preview-container" id="preview-container">
+                            <div class="preview-title">Uploaded Image Preview</div>
+                            <img src="" alt="Payment proof preview" class="image-preview" id="image-preview">
+                        </div>
+                    </div>
+                    <div class="button-group">
+                        <button type="button" class="button button-secondary" id="prev-step2"><i class="fas fa-arrow-left"></i> Back</button>
+                        <button type="submit" class="button button-primary" id="submit-proof-btn">Submit Proof <i class="fas fa-check"></i></button>
+                    </div>
+                </div>
+            </form>
+            
+            <!-- Step 3: Confirmation on Success -->
+            <div class="step" id="step3">
+                <div class="confirmation-content">
+                    <div class="confirmation-icon success"><i class="fas fa-check-circle"></i></div>
+                    <h2 class="title" style="text-align: center; margin-bottom: 1.5rem;">Payment Submitted!</h2>
+                    <p>Your payment is being processed. We'll notify you via email once your license is approved. This usually takes 1-2 business days.</p>
+                    <div class="button-group center-button">
+                        <a href="logout" class="button button-primary"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Awaiting Approval -->
+            <div class="step" id="step4">
+                <div class="confirmation-content">
+                    <div class="confirmation-icon pending"><i class="fas fa-hourglass-half"></i></div>
+                    <h2 class="title" style="text-align: center; margin-bottom: 1.5rem;">Awaiting Approval</h2>
+                    <p>Your payment proof has been submitted and is awaiting approval. We'll notify you via email once it's verified.</p>
+                    <div class="button-group center-button" style="flex-direction: row; gap: 1rem;">
+                        <a href="logout" class="button button-secondary"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        <a href="payment?action=retry" class="button button-primary"><i class="fas fa-redo"></i> Retry Payment</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else if (prefersDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const steps = {
+                1: document.getElementById('step1'),
+                2: document.getElementById('step2'),
+                3: document.getElementById('step3'),
+                4: document.getElementById('step4')
+            };
+            const nextStep1 = document.getElementById('next-step1');
+            const prevStep2 = document.getElementById('prev-step2');
+            const stepText = document.getElementById('step-text');
+            const progressFill = document.getElementById('progress-fill');
+            const browseBtn = document.getElementById('browse-btn');
+            const fileInput = document.getElementById('file-input');
+            const uploadArea = document.getElementById('upload-area');
+            const previewContainer = document.getElementById('preview-container');
+            const imagePreview = document.getElementById('image-preview');
+            const accountNumber = document.getElementById('account-number');
+            const copyBtn = document.getElementById('copy-btn');
+            const notification = document.getElementById('notification');
+            const paymentForm = document.getElementById('payment-form');
+            const submitProofBtn = document.getElementById('submit-proof-btn');
+
+            let currentStep = <?php echo $initialStep; ?>;
+
+            function updateProgress() {
+                let progressPercent = 33;
+                if (currentStep === 2) progressPercent = 66;
+                if (currentStep >= 3) progressPercent = 100;
+                stepText.textContent = `Step ${Math.min(currentStep, 3)} of 3`;
+                progressFill.style.width = `${progressPercent}%`;
+            }
+
+            function goToStep(step) {
+                Object.values(steps).forEach(s => s.classList.remove('active'));
+                if (steps[step]) {
+                    steps[step].classList.add('active');
+                    currentStep = step;
+                    updateProgress();
+                }
+            }
+
+            nextStep1.addEventListener('click', () => goToStep(2));
+            prevStep2.addEventListener('click', () => goToStep(1));
+
+            browseBtn.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', handleFiles);
+            uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
+            uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('active'));
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('active');
+                fileInput.files = e.dataTransfer.files;
+                handleFiles();
+            });
+
+            function handleFiles() {
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    if (file.type.match('image.*')) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            imagePreview.src = e.target.result;
+                            previewContainer.classList.add('active');
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        alert('Please select an image file (JPG, PNG).');
+                    }
+                }
+            }
+
+            paymentForm.addEventListener('submit', (e) => {
+                if (currentStep === 2 && fileInput.files.length === 0) {
+                    e.preventDefault();
+                    alert('Please upload a payment proof before submitting.');
+                }
+            });
+
+            copyBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(accountNumber.textContent).then(() => {
+                    notification.classList.add('show');
+                    setTimeout(() => notification.classList.remove('show'), 3000);
+                });
+            });
+
+            // Initial setup
+            goToStep(currentStep);
+        });
+    </script>
+</body>
 </html>

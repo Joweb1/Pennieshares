@@ -386,8 +386,8 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                     <div id="asset-info-box" class="asset-info-box" style="display: none;">
                         <p><strong>Selected:</strong> <span id="info-name" class="info-value"></span></p>
                         <p><strong>Price: </strong><span id="info-price" class="info-value"></span></p>
-                        <p><strong>Payout Cap (Generational):</strong> <span id="info-payout-cap" class="info-value"></span></p>
-                        <p><strong>Duration:</strong> <span id="info-duration-months" class="info-value"></span> months</p>
+                        <p><strong>Payout Cap:</strong> <span id="info-payout-cap" class="info-value"></span></p>
+                        <p><strong>Duration:</strong> <span id="info-duration-months" class="info-value"></span></p>
                     </div>
 
                     <div class="form-group">
@@ -434,7 +434,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
 
                     <div style="display:flex; justify-content: space-between; margin-top: 1.5rem;">
                          <button type="button" id="backToSelection" class="btn btn-secondary">Back</button>
-                         <button type="submit" name="action" value="confirm_purchase" class="btn btn-primary">Confirm & Buy</button>
+                         <button type="submit" name="action" value="confirm_purchase" class="btn btn-primary" id="rollin">Confirm & Buy</button>
                     </div>
                 </div>
             </form>
@@ -501,6 +501,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorState = document.getElementById('errorState');
     const successSound = new Audio('../assets/sound/new-notification-07-210334.mp3');
     successSound.preload = 'auto';
+    const rollin = document.getElementById('buyAssetForm');
+    
+    rollin.addEventListener('submit', () => {
+        // Hide other states just in case
+        successState.classList.remove('active');
+        errorState.classList.remove('active');
+
+        // Show processing state and modal
+        processingState.classList.add('active');
+        purchaseModal.classList.add('visible');
+    });
 
     const purchaseStatus = <?php echo json_encode($purchaseStatus); ?>;
 
@@ -619,7 +630,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalCost = price * quantity;
 
         if (currentUserBalance < totalCost) {
-             alert('Insufficient wallet balance to proceed. Required: ' + formatCurrency(totalCost) + ', Available: ' + formatCurrency(currentUserBalance));
+             // Show error modal instead of alert
+             document.getElementById('error-message').textContent = 'Insufficient wallet balance to proceed. Required: ' + formatCurrency(totalCost) + ', Available: ' + formatCurrency(currentUserBalance);
+             processingState.classList.remove('active'); // Ensure processing is off
+             successState.classList.remove('active'); // Ensure success is off
+             errorState.classList.add('active');
+             purchaseModal.classList.add('visible');
              return;
         }
 

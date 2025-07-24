@@ -556,6 +556,15 @@ $referredUsers = getReferredUsers($user['partner_code']);
       </div>
     </div>
     
+    <div class="profile-navigation" style="margin: 20px; padding: 15px; background: white; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.1);">
+        <h3 style="margin-bottom: 15px; color: #001970;">Quick Links</h3>
+        <ul style="list-style: none; padding: 0;">
+            <li style="margin-bottom: 10px;"><a href="/idcard" style="text-decoration: none; color: #007bff; font-weight: 500;"><i class="fas fa-id-card"></i> My ID Card</a></li>
+            <li style="margin-bottom: 10px;"><a href="/about" style="text-decoration: none; color: #007bff; font-weight: 500;"><i class="fas fa-info-circle"></i> About Us</a></li>
+            <li><a href="/faqs" style="text-decoration: none; color: #007bff; font-weight: 500;"><i class="fas fa-question-circle"></i> FAQs</a></li>
+        </ul>
+    </div>
+
     <!-- Add this section after the info-section -->
     <section class="referred-partners">
     <div class="section-header">

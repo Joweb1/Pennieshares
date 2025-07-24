@@ -1,4 +1,14 @@
 <?php
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/kyc_functions.php';
+
+$kyc_status = getKycStatus($pdo, $user['id']);
+if (!$kyc_status || $kyc_status['status'] !== 'verified') {
+    $_SESSION['show_kyc_popup'] = true;
+    header('Location: /wallet');
+    exit;
+}
+
 require_once __DIR__ . '/../src/functions.php';
 check_auth();
 
@@ -19,15 +29,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         if (!$receiverUser) {
             $_SESSION['transfer_message'] = "Recipient user '{$receiverUsername}' not found.";
-        } elseif ($receiverUser['is_admin'] != 1) {
-            $_SESSION['transfer_message'] = "You can only transfer funds to a Broker.";
         } else {
-            $transferResult = transferWalletBalance($pdo, $senderId, $receiverUser['id'], $amount);
-            if ($transferResult['success']) {
-                $_SESSION['transfer_status'] = 'success';
-                $_SESSION['transfer_amount'] = $amount;
+            // --- DEBUGGING START ---
+            error_log("DEBUG: Sender (currentUser) is_broker: " . ($currentUser['is_broker'] ? 'true' : 'false'));
+            error_log("DEBUG: Receiver (receiverUser) is_broker: " . ($receiverUser['is_broker'] ? 'true' : 'false'));
+            // --- DEBUGGING END ---
+
+            if (!$currentUser['is_broker'] && $receiverUser['is_broker'] != 1) {
+                $_SESSION['transfer_message'] = "You can only transfer funds to a Broker.";
             } else {
-                $_SESSION['transfer_message'] = $transferResult['message'];
+                $transferResult = transferWalletBalance($pdo, $senderId, $receiverUser['id'], $amount);
+                if ($transferResult['success']) {
+                    $_SESSION['transfer_status'] = 'success';
+                    $_SESSION['transfer_amount'] = $amount;
+                } else {
+                    $_SESSION['transfer_message'] = $transferResult['message'];
+                }
             }
         }
     }
@@ -287,7 +304,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             <form method="post" id="transferForm">
                 <input type="hidden" name="action" value="user_transfer_wallet">
                 <div class="form-group">
-                    <label for="receiver_username">Broker Username or Partner Code:</label>
+                    <label for="receiver_username">Recipient Username or Partner Code:</label>
                     <input type="text" name="receiver_username" id="receiver_username" class="form-input" required>
                 </div>
                 <div class="form-group">

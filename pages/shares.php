@@ -2,11 +2,11 @@
 require_once __DIR__ . '/../src/functions.php';
 check_auth();
 
-$user = $_SESSION['user'];
-$userId = $user['id'];
+$loggedInUser = $_SESSION['user'];
+$loggedInUserId = $loggedInUser['id'];
 
 // Fetch all of the user's assets with their type details
-$userAssets = getUserAssets($pdo, $userId);
+$userAssets = getUserAssets($pdo, $loggedInUserId);
 
 // --- CALCULATIONS ---
 
@@ -15,10 +15,10 @@ $totalReturn = 0;
 $assetAllocation = [];
 $activeAssetsCount = 0;
 
-// Calculate Total Return from all asset_profit transactions
-$returnStmt = $pdo->prepare("SELECT SUM(amount) FROM wallet_transactions WHERE user_id = ? AND type = 'asset_profit'");
-$returnStmt->execute([$userId]);
-$totalReturn = $returnStmt->fetchColumn() ?? 0;
+// Calculate Total Return from user's total_return column
+$stmt = $pdo->prepare("SELECT total_return FROM users WHERE id = ?");
+$stmt->execute([$loggedInUserId]);
+$totalReturnSV = $stmt->fetchColumn() ?? 0;
 
 // Process each asset
 foreach ($userAssets as $asset) {
@@ -266,6 +266,13 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     .status-completed { background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; }
     .status-expired { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
 
+    .asset-table-image {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
 
     /* Responsive styles */
     @media (max-width: 768px) {
@@ -301,7 +308,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                     <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 256 256"><path d="M235.15,114.85l-96-96a8,8,0,0,0-11.3,0l-96,96a8,8,0,0,0,11.3,11.3L128,42.3,223.85,138.15a8,8,0,0,0,11.3-11.3ZM128,144a24,24,0,1,0-24-24A24,24,0,0,0,128,144Zm86.63,60.89-28.52-19a64.07,64.07,0,1,0-72.22,0l-28.52,19A8,8,0,0,0,88,224H216a8,8,0,0,0,2.63-15.11Z"></path></svg>
                     <p class="card-title">Total Return</p>
                 </div>
-                <p class="card-value positive">+SV <?php echo number_format($totalReturn, 2); ?></p>
+                <p class="card-value positive">+SV <?php echo number_format($totalReturnSV, 2); ?></p>
             </div>
             <div class="card">
                 <div class="card-header">
@@ -330,7 +337,9 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                 <table>
                     <thead>
                         <tr>
+                            <th>Image</th>
                             <th>Asset</th>
+                            <th>Price</th>
                             <th>Asset Worth</th>
                             <th>Total Profit</th>
                             <th>Progress</th>
@@ -339,7 +348,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                     </thead>
                     <tbody>
                         <?php if (empty($userAssets)): ?>
-                            <tr><td colspan="5" style="text-align: center;">You do not own any assets yet.</td></tr>
+                            <tr><td colspan="6" style="text-align: center;">You do not own any assets yet.</td></tr>
                         <?php else: ?>
                             <?php foreach ($userAssets as $asset): ?>
                                 <?php
@@ -350,8 +359,18 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                                 ?>
                                 <tr>
                                     <td>
+                                        <?php if (!empty($asset['image_link'])): ?>
+                                            <img src="<?php echo htmlspecialchars($asset['image_link']); ?>" alt="<?php echo htmlspecialchars($asset['asset_type_name']); ?>" class="asset-table-image">
+                                        <?php else: ?>
+                                            N/A
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
                                         <div class="asset-name"><?php echo htmlspecialchars($asset['asset_type_name']); ?></div>
                                         <div class="asset-value"><?php echo htmlspecialchars(getAssetBranding($asset['asset_type_id'])['category']); ?></div>
+                                    </td>
+                                    <td>
+                                        <div class="asset-name">SV <?php echo number_format($asset['asset_price'], 2); ?></div>
                                     </td>
                                     <td>
                                         <div class="asset-name">SV <?php echo number_format($assetWorth, 2); ?></div>

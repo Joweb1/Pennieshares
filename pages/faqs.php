@@ -9,7 +9,7 @@ $user = $_SESSION['user'];
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Penniepoint FAQs</title>
+  <title>Pennieshares FAQs</title>
   <!-- Font Awesome (CDN) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
@@ -188,12 +188,13 @@ $user = $_SESSION['user'];
   </style>
 </head>
 <body>
+  <div class="back" ><a href="/profile_view" ><i class="fas fa-arrow-left" ></i></a></div>
   <div class="cont">
     <div class="header-container">
       <div class="up-circle"></div>
       <div class="header-top animate-on-scroll">
-        <h1 class="username">Penniepoint FAQs</h1>
-        <span class="gradient-gold">Your Guide to Saving and Partnering</span>
+        <h1 class="username">Pennieshares FAQs</h1>
+        <span class="gradient-gold">Your Guide to Shares and Investments</span>
       </div>
     </div>
     
@@ -201,76 +202,137 @@ $user = $_SESSION['user'];
       <!-- FAQ 1 -->
       <div class="faq-section animate-on-scroll">
         <div class="faq-header">
-          <h3> What is Penniepoint?</h3>
+          <h3>What is Pennieshares, and how does it work?</h3>
           <i class="fas fa-chevron-down faq-icon"></i>
         </div>
         <div class="faq-body">
-          <p>Penniepoint is a disciplinary saving system that not only helps you reach your financial goals but also makes saving profitable by enabling you to earn extra income when you partner with others.</p>
+          <p>Pennieshares is an open-source brokerage company that allows you to buy and sell shares in a transparent and secure way. Our platform is designed to give you control over your investments.</p>
         </div>
       </div>
       
       <!-- FAQ 2 -->
       <div class="faq-section animate-on-scroll">
         <div class="faq-header">
-          <h3> How does the system work?</h3>
+          <h3>How do I get started with Pennieshares?</h3>
           <i class="fas fa-chevron-down faq-icon"></i>
         </div>
         <div class="faq-body">
-          <p>Penniepoint offers various saving systems to suit your financial target. You choose the system that fits your saving style and start saving. The catch? Money cannot be withdrawn at will. To discipline your spending, you need to contact your account manager to authorize a withdrawal.</p>
+          <p>Getting started is easy! Simply sign up for an account, and you'll have access to our platform. You can start buying and selling shares right away.</p>
         </div>
       </div>
       
       <!-- FAQ 3 -->
       <div class="faq-section animate-on-scroll">
         <div class="faq-header">
-          <h3> Why can't I withdraw money freely?</h3>
+          <h3>What does it mean that Pennieshares is open-source?</h3>
           <i class="fas fa-chevron-down faq-icon"></i>
         </div>
         <div class="faq-body">
-          <p>The restriction is by design – it helps discipline your saving habits. Withdrawing funds requires authorization from your account manager, ensuring that withdrawals are made only for truly important needs.</p>
+          <p>As an open-source company, our code is transparent and available for anyone to review. This means that our operations are transparent, and you have full control over your shares and money.</p>
         </div>
       </div>
       
       <!-- FAQ 4 -->
       <div class="faq-section animate-on-scroll">
         <div class="faq-header">
-          <h3> What makes Penniepoint unique?</h3>
+          <h3>How does the open-source model benefit me?</h3>
           <i class="fas fa-chevron-down faq-icon"></i>
         </div>
         <div class="faq-body">
-          <p>Beyond a standard savings mechanism, Penniepoint instills discipline through controlled access to your funds. It’s a system that transforms saving into an opportunity for both securing your financial future and earning extra income by partnering with others.</p>
+          <p>The open-source model ensures that our platform is transparent, secure, and community-driven. You can trust that your investments are being handled in a fair and transparent way.</p>
         </div>
       </div>
       
       <!-- FAQ 5 -->
       <div class="faq-section animate-on-scroll">
         <div class="faq-header">
-          <h3>What are the partnership levels?</h3>
+          <h3>Who controls my shares and money?</h3>
           <i class="fas fa-chevron-down faq-icon"></i>
         </div>
         <div class="faq-body">
-          <p>When partnering with Penniepoint, you start as an Analyst (earning on your 1st generation). Progression requires inviting and managing partners:
-            <br><br><strong>Analyst:</strong> Start your journey.
-            <br><strong>Manager:</strong> Partner with 15 people and help them succeed.
-            <br><strong>Executive:</strong> Assist 10 partners to become managers.
-            <br><strong>Director:</strong> Lead 3 partners to become directors – earning up to your 4th generation.
-          </p>
+          <p>You do! As an open-source brokerage company, Pennieshares doesn't control your shares or money. You have full control over your investments.</p>
         </div>
       </div>
       
       <!-- FAQ 6 -->
       <div class="faq-section animate-on-scroll">
         <div class="faq-header">
-          <h3> Why should I partner with Penniepoint?</h3>
+          <h3>How do you protect my personal and financial information?</h3>
           <i class="fas fa-chevron-down faq-icon"></i>
         </div>
         <div class="faq-body">
-          <p>Partnering with Penniepoint gives you your own saving system with added benefits. Not only do you save money in a disciplined manner, but you also earn extra income as your network grows, enjoying earnings up to the 4th generation.</p>
+          <p>We use advanced encryption and secure servers to protect your data. Our open-source model also ensures that our security protocols are transparent and regularly reviewed.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 7 -->
+      <div class="faq-section animate-on-scroll">
+        <div class="faq-header">
+          <h3>What are your fees and commissions?</h3>
+          <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-body">
+          <p>Our fees and commissions are competitive and transparent. We offer a range of pricing options to suit different investment needs and goals.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 8 -->
+      <div class="faq-section animate-on-scroll">
+        <div class="faq-header">
+          <h3>Are there any hidden fees?</h3>
+          <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-body">
+          <p>No! We are committed to transparency and will clearly disclose all fees and charges associated with our services.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 9 -->
+      <div class="faq-section animate-on-scroll">
+        <div class="faq-header">
+          <h3>Do you offer investment advice?</h3>
+          <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-body">
+          <p>While we don't provide personalized investment advice, our platform offers educational resources and tools to help you make informed investment decisions.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 10 -->
+      <div class="faq-section animate-on-scroll">
+        <div class="faq-header">
+          <h3>How can I get support if I have questions or concerns?</h3>
+          <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-body">
+          <p>Our community-driven support team is available to assist you via online forums, email, or chat.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 11 -->
+      <div class="faq-section animate-on-scroll">
+        <div class="faq-header">
+          <h3>How can I monitor my account activity?</h3>
+          <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-body">
+          <p>You can access your account online or through our mobile app, where you can view your portfolio, transaction history, and account balances.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 12 -->
+      <div class="faq-section animate-on-scroll">
+        <div class="faq-header">
+          <h3>Can I set up automatic investments or withdrawals?</h3>
+          <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-body">
+          <p>Yes! We offer flexible options for automatic investments and withdrawals to help you manage your cash flow.</p>
         </div>
       </div>
       
     </div>
-    <div class="back" ><a href="dashboard" ><i class="fas fa-arrow-left" ></i></a></div>
+    <div class="back" ><a href="/profile_view" ><i class="fas fa-arrow-left" ></i></a></div>
   </div>
   
   <script>
@@ -323,4 +385,3 @@ $user = $_SESSION['user'];
   </script>
 </body>
 </html>
-

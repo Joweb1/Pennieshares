@@ -1,5 +1,4 @@
     <script>
-      document.addEventListener('DOMContentLoaded', () => {
         const themeToggle = document.getElementById('theme-toggle');
         const themeToggleSettings = document.getElementById('theme-toggle-settings');
         const html = document.documentElement;
@@ -95,7 +94,6 @@
                 notificationBadgeMobile.style.display = 'none';
             }
         }
-      });
     </script>
   </body>
 </html>

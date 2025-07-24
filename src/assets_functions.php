@@ -1,12 +1,13 @@
 <?php
 // --- Constants for Fund Distribution ---
-define('GENERATIONAL_POT_ALLOCATION', 10.00);
-define('PAYOUT_PER_GENERATION_EVENT_FROM_POT', 2.00); // 10 / 5 generations
+define('GENERATIONAL_POT_ALLOCATION', 7.50);
+define('PAYOUT_PER_GENERATION_EVENT_FROM_POT', 1.50); // 7.5 / 5 generations
 define('SHARED_POT_ALLOCATION', 5.00);
 define('COMPANY_PROFIT_ALLOCATION', 3.00);
-define('FIXED_ALLOCATIONS_TOTAL', GENERATIONAL_POT_ALLOCATION + SHARED_POT_ALLOCATION + COMPANY_PROFIT_ALLOCATION); // 10 + 5 + 3 = 18
+define('REFERRAL_BONUS', 2.50);
+define('FIXED_ALLOCATIONS_TOTAL', GENERATIONAL_POT_ALLOCATION + SHARED_POT_ALLOCATION + COMPANY_PROFIT_ALLOCATION + REFERRAL_BONUS); // 7.5 + 5 + 3 + 2.5 = 18
 
-define('CHILDREN_PER_ASSET', 3);
+define('CHILDREN_PER_ASSET', 2);
 define('MAX_GENERATIONS_PAYOUT_DEPTH', 5);
 
 
@@ -79,7 +80,7 @@ function getAncestorsForPayout($pdo, $childAssetId, $maxDepth = MAX_GENERATIONS_
 
         if ($parentId) {
             $ancestorDetailsStmt = $pdo->prepare("
-                SELECT a.id, a.asset_type_id, at.payout_cap, a.is_completed, a.is_manually_expired, a.expires_at, a.total_generational_received
+                SELECT a.id, a.user_id, a.asset_type_id, at.payout_cap, a.is_completed, a.is_manually_expired, a.expires_at, a.total_generational_received
                 FROM assets a
                 JOIN asset_types at ON a.asset_type_id = at.id
                 WHERE a.id = ?
@@ -97,7 +98,7 @@ function getAncestorsForPayout($pdo, $childAssetId, $maxDepth = MAX_GENERATIONS_
             break; 
         }
     }
-    return $ancestors; 
+    return $ancestors;
 }
 
 
@@ -127,7 +128,8 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
         $currentPurchaseResult = [
             'asset_id' => null, 'message' => '', 'parent_update' => '',
             'company_profit_log' => '', 'reservation_direct_log' => '',
-            'generational_payouts_log' => [], 'shared_payouts_log' => []
+            'generational_payouts_log' => [], 'shared_payouts_log' => [],
+            'referral_bonus_log' => ''
         ];
 
         $expires_at = null;
@@ -159,20 +161,56 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
         $assetPrice = $assetType['price'];
         $remainingAmount = $assetPrice;
 
+        // 0. Referral Bonus Allocation
+        $buyer = getUserByIdOrName($pdo, $userId);
+        if ($buyer && !empty($buyer['referral'])) {
+            $referrer = getUserByIdOrName($pdo, $buyer['referral']);
+            if ($referrer) {
+                $referralBonusAmount = REFERRAL_BONUS;
+                
+                // Manually credit wallet to avoid double email from generic credit function
+                $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :id")->execute([':amount' => $referralBonusAmount, ':id' => $referrer['id']]);
+                // Also add to total_return for asset partner bonus
+                $pdo->prepare("UPDATE users SET total_return = total_return + :amount WHERE id = :id")->execute([':amount' => $referralBonusAmount, ':id' => $referrer['id']]);
+                
+                // Manually log the transaction for the referrer
+                $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+                $logStmt->execute([$referrer['id'], 'asset_partner_bonus', $referralBonusAmount, "Asset partner bonus from " . $buyer['username']]);
+
+                // Send the specific email notification for the bonus
+                $email_data = [
+                    'referrer_username' => $referrer['username'],
+                    'bonus_amount'      => number_format($referralBonusAmount, 2),
+                    'new_user_username' => $buyer['username']
+                ];
+                sendNotificationEmail('asset_partner_bonus_user', $email_data, $referrer['email'], 'You Received an Asset Partner Bonus!');
+                // Send push notification to referrer
+                $referrer_payload = [
+                    'title' => 'Referral Bonus!',
+                    'body' => 'You received a SV' . number_format($referralBonusAmount, 2) . ' bonus from ' . $buyer['username'] . '.',
+                    'icon' => 'assets/images/logo.png',
+                ];
+                sendPushNotification($referrer['id'], $referrer_payload);
+
+                $remainingAmount -= $referralBonusAmount;
+                $currentPurchaseResult['referral_bonus_log'] = "Referrer #{$referrer['id']} ({$referrer['username']}) received ₦" . number_format($referralBonusAmount, 2) . ".";
+            }
+        }
+
         // 1. Company Profit Allocation
-        $companyProfitAmount = $assetPrice * (COMPANY_PROFIT_ALLOCATION / 100);
+        $companyProfitAmount = COMPANY_PROFIT_ALLOCATION;
         $pdo->prepare("UPDATE company_funds SET total_company_profit = total_company_profit + ? WHERE id = 1")->execute([$companyProfitAmount]);
         $remainingAmount -= $companyProfitAmount;
         $currentPurchaseResult['company_profit_log'] = "Company profit increased by ₦" . number_format($companyProfitAmount, 2) . ".";
 
         // 2. Generational Pot Allocation
-        $generationalPotAmount = $assetPrice * (GENERATIONAL_POT_ALLOCATION / 100);
+        $generationalPotAmount = GENERATIONAL_POT_ALLOCATION;
         $pdo->prepare("UPDATE company_funds SET total_generational_pot = total_generational_pot + ? WHERE id = 1")->execute([$generationalPotAmount]);
         $remainingAmount -= $generationalPotAmount;
         $currentPurchaseResult['generational_pot_log'] = "Generational pot increased by ₦" . number_format($generationalPotAmount, 2) . ".";
 
         // 3. Shared Pot Allocation
-        $sharedPotAmount = $assetPrice * (SHARED_POT_ALLOCATION / 100);
+        $sharedPotAmount = SHARED_POT_ALLOCATION;
         $pdo->prepare("UPDATE company_funds SET total_shared_pot = total_shared_pot + ? WHERE id = 1")->execute([$sharedPotAmount]);
         $remainingAmount -= $sharedPotAmount;
         $currentPurchaseResult['shared_pot_log'] = "Shared pot increased by ₦" . number_format($sharedPotAmount, 2) . ".";
@@ -203,17 +241,14 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
                     $pdo->prepare("UPDATE company_funds SET total_generational_pot = total_generational_pot - ? WHERE id = 1")->execute([$payoutAmount]);
                     // Credit ancestor asset
                     $pdo->prepare("UPDATE assets SET total_generational_received = total_generational_received + ? WHERE id = ?")->execute([$payoutAmount, $ancestor['id']]);
-                    // Credit user wallet
-                    $ancestorUserIdStmt = $pdo->prepare("SELECT user_id FROM assets WHERE id = ?");
-                    $ancestorUserIdStmt->execute([$ancestor['id']]);
-                    $ancestorUserId = $ancestorUserIdStmt->fetchColumn();
-                    if ($ancestorUserId) {
-                            $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")->execute([$payoutAmount, $ancestorUserId]);
-                            // Log generational payout as asset_profit
-                            $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
-                            $assetName = getAssetBranding($ancestor['asset_type_id'])['name'];
-                            $logStmt->execute([$ancestorUserId, 'asset_profit', $payoutAmount, 'Profit from ' . $assetName]);
-                        }
+
+                    // Schedule fractional payouts
+                    $fractionalAmount = $payoutAmount / 10;
+                    for ($i = 0; $i < 10; $i++) {
+                        $creditAt = date('Y-m-d H:i:s', time() + mt_rand(1, 48 * 3600));
+                        $pdo->prepare("INSERT INTO pending_profits (user_id, receiving_asset_id, fractional_amount, payout_type, credit_at) VALUES (?, ?, ?, ?, ?)")
+                            ->execute([$ancestor['user_id'], $ancestor['id'], $fractionalAmount, 'generational', $creditAt]);
+                    }
 
                     // Log payout
                     $pdo->prepare("INSERT INTO payouts (receiving_asset_id, triggering_asset_id, amount, payout_type, created_at) VALUES (?, ?, ?, ?, ?)")
@@ -242,15 +277,15 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
         if ($numActiveAssets > 0) {
             $fractionalSharedPayout = SHARED_POT_ALLOCATION / $numActiveAssets;
             foreach ($activeAssets as $activeAsset) {
-                // Credit asset's total_shared_received
+               // Credit asset's total_shared_received
                 $pdo->prepare("UPDATE assets SET total_shared_received = total_shared_received + ? WHERE id = ?")->execute([$fractionalSharedPayout, $activeAsset['id']]);
-                
-                // Credit user wallet
-                $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?")->execute([$fractionalSharedPayout, $activeAsset['user_id']]);
-
-                // Log shared payout as asset_profit
-                $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
-                $logStmt->execute([$activeAsset['user_id'], 'asset_profit', $fractionalSharedPayout, 'Profit from ' . $activeAsset['asset_type_name']]);
+                // Schedule fractional payouts
+                $fractionalAmount = $fractionalSharedPayout / 10;
+                for ($i = 0; $i < 10; $i++) {
+                    $creditAt = date('Y-m-d H:i:s', time() + mt_rand(1, 48 * 3600));
+                    $pdo->prepare("INSERT INTO pending_profits (user_id, receiving_asset_id, fractional_amount, payout_type, credit_at) VALUES (?, ?, ?, ?, ?)")
+                        ->execute([$activeAsset['user_id'], $activeAsset['id'], $fractionalAmount, 'shared', $creditAt]);
+                }
 
                 $currentPurchaseResult['shared_payouts_log'][] = "Asset #{$activeAsset['id']} received ₦" . number_format($fractionalSharedPayout, 2) . " (Shared).";
             }
@@ -272,6 +307,27 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
             'price' => number_format($totalCost, 2)
         ];
         sendNotificationEmail('asset_purchase_admin', $admin_data, 'nahjonah00@gmail.com', 'New Asset Purchase');
+
+        // Send comprehensive email to user
+        $user_email_data = [
+            'username' => $user['username'],
+            'asset_name' => $assetType['name'],
+            'quantity' => $numAssetsToBuy,
+            'price_per_unit' => number_format($assetType['price'], 2),
+            'total_cost' => number_format($totalCost, 2),
+            'payout_cap' => number_format($assetType['payout_cap'], 2),
+            'duration' => ($assetType['duration_months'] > 0 ? $assetType['duration_months'] . ' months' : 'Unlimited'),
+            'asset_image_url' => (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://{$_SERVER['HTTP_HOST']}/" . str_replace('../', '', $assetType['image_link']) // Construct full URL
+        ];
+        sendNotificationEmail('asset_purchase_user', $user_email_data, $user['email'], 'Your Asset Purchase Confirmation');
+
+        // Send push notification for asset purchase
+        $buyer_payload = [
+            'title' => 'Asset Purchased!',
+            'body' => 'You have successfully purchased ' . $numAssetsToBuy . ' of ' . $assetType['name'] . '. Total cost: SV' . number_format($totalCost, 2) . '.',
+            'icon' => 'assets/images/logo.png',
+        ];
+        sendPushNotification($userId, $buyer_payload);
     }
 
     return $overallResults;
@@ -282,7 +338,7 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
 function getUserAssets($pdo, $userId) {
     $now = date('Y-m-d H:i:s');
     $stmt = $pdo->prepare("
-        SELECT a.*, at.name as asset_type_name, at.payout_cap as type_payout_cap,
+        SELECT a.*, at.name as asset_type_name, at.price as asset_price, at.payout_cap as type_payout_cap, at.image_link,
                (a.total_generational_received + a.total_shared_received) as total_earned,
                CASE 
                    WHEN a.is_completed = 1 THEN 'Completed'
@@ -370,6 +426,29 @@ function addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLi
     }
 }
 
+function updateAssetType($pdo, $assetTypeId, $name, $price, $payoutCap, $durationMonths, $imageLink = null, $category = null) {
+    try {
+        $reservationContribution = $price - FIXED_ALLOCATIONS_TOTAL;
+        $sql = "UPDATE asset_types SET name = ?, price = ?, payout_cap = ?, duration_months = ?, reservation_fund_contribution = ?, category = ?";
+        $params = [$name, $price, $payoutCap, $durationMonths, $reservationContribution, $category];
+
+        if ($imageLink) {
+            $sql .= ", image_link = ?";
+            $params[] = $imageLink;
+        }
+
+        $sql .= " WHERE id = ?";
+        $params[] = $assetTypeId;
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error updating asset type: " . $e->getMessage());
+        return false;
+    }
+}
+
 function markAssetExpired($pdo, $assetId) {
     try {
         $stmt = $pdo->prepare("UPDATE assets SET is_manually_expired = 1 WHERE id = ?");
@@ -417,21 +496,36 @@ function markAssetCompleted($pdo, $assetId) {
 
 function deleteAssetType($pdo, $assetTypeId) {
     try {
+        // Temporarily disable foreign key checks
+        $pdo->exec('PRAGMA foreign_keys = OFF;');
+
+        // Start a transaction
+        $pdo->beginTransaction();
+
         // Delete all assets associated with this asset type
-        $pdo->prepare("DELETE FROM assets WHERE asset_type_id = ?")->execute([$assetTypeId]);
+        // $pdo->prepare("DELETE FROM assets WHERE asset_type_id = ?")->execute([$assetTypeId]);
 
         // Now delete the asset type itself
         $stmt = $pdo->prepare("DELETE FROM asset_types WHERE id = ?");
         $stmt->execute([$assetTypeId]);
+
+        // Commit the transaction
+        $pdo->commit();
+
         return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
-        error_log("Error deleting asset type: " . $e->getMessage());
+        // Rollback the transaction on error
+        $pdo->rollBack();
+        error_log("Error deleting asset type: " . $e->getMessage());        echo "Error deleting asset type: " . $e->getMessage() . "\n";
         return false;
+    } finally {
+        // Re-enable foreign key checks, regardless of success or failure
+        $pdo->exec('PRAGMA foreign_keys = ON;');
     }
 }
 
 function getPaginatedAssets($pdo, $limit, $offset, $searchQuery = '') {
-    $sql = "SELECT a.*, u.username as username, at.name as asset_type_name, at.payout_cap as type_payout_cap,
+    $sql = "SELECT a.*, u.username as username, at.name as asset_type_name, at.payout_cap as type_payout_cap, at.price as asset_price,
                 (a.total_generational_received + a.total_shared_received) as total_earned
                 FROM assets a 
                 JOIN users u ON a.user_id = u.id 

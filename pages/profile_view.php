@@ -184,10 +184,24 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                     </div>
                     <span class="material-icons-outlined menu-chevron">chevron_right</span>
                 </a>
-                <a class="menu-item" href="transactions">
+                <a class="menu-item" href="idcard">
                     <div class="menu-item-content">
-                        <span class="material-icons-outlined menu-icon">notifications_none</span>
-                        <span class="menu-text">Notifications</span>
+                        <span class="material-icons-outlined menu-icon">badge</span>
+                        <span class="menu-text">My ID Card</span>
+                    </div>
+                    <span class="material-icons-outlined menu-chevron">chevron_right</span>
+                </a>
+                <a class="menu-item" href="about">
+                    <div class="menu-item-content">
+                        <span class="material-icons-outlined menu-icon">info</span>
+                        <span class="menu-text">About Us</span>
+                    </div>
+                    <span class="material-icons-outlined menu-chevron">chevron_right</span>
+                </a>
+                <a class="menu-item" href="faqs">
+                    <div class="menu-item-content">
+                        <span class="material-icons-outlined menu-icon">help_outline</span>
+                        <span class="menu-text">FAQs</span>
                     </div>
                     <span class="material-icons-outlined menu-chevron">chevron_right</span>
                 </a>
@@ -198,10 +212,24 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                     </div>
                     <span class="material-icons-outlined menu-chevron">chevron_right</span>
                 </a>
-                <a class="menu-item" href="#">
+                <a class="menu-item" href="terms">
                     <div class="menu-item-content">
-                        <span class="material-icons-outlined menu-icon">help_outline</span>
-                        <span class="menu-text">Help Center</span>
+                        <span class="material-icons-outlined menu-icon">description</span>
+                        <span class="menu-text">Terms & Conditions</span>
+                    </div>
+                    <span class="material-icons-outlined menu-chevron">chevron_right</span>
+                </a>
+                <a class="menu-item" href="kyc">
+                    <div class="menu-item-content">
+                        <span class="material-icons-outlined menu-icon">verified_user</span>
+                        <span class="menu-text">KYC Verification</span>
+                    </div>
+                    <span class="material-icons-outlined menu-chevron">chevron_right</span>
+                </a>
+                <a class="menu-item" href="transactions">
+                    <div class="menu-item-content">
+                        <span class="material-icons-outlined menu-icon">receipt_long</span>
+                        <span class="menu-text">Transactions</span>
                     </div>
                     <span class="material-icons-outlined menu-chevron">chevron_right</span>
                 </a>

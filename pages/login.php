@@ -1,18 +1,15 @@
 <?php
-
 require_once __DIR__ . '/../src/functions.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-    generateCsrfToken(); // Generate new CSRF token for each form
 }
-
 verify_auth();
+
 generateCsrfToken();
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    
     verifyCsrfToken($_POST['csrf_token'] ?? '');
 
     $email = trim($_POST['email']);
@@ -21,11 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (empty($email) || empty($password)) {
         $error = "Please fill in all fields";
     } else {
-        $user = loginUser($email, $password);
+        $user = loginUser($pdo, $email, $password);
         if ($user) {
-            session_regenerate_id(true); // Prevent session fixation
+            session_regenerate_id(true);
             $_SESSION['user'] = $user;
-            header("Location: dashboard");
+            header("Location: loading");
             exit;
         } else {
             $error = "Invalid email or password.";
@@ -36,245 +33,251 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login Page</title>
-  <!-- Font Awesome (CDN) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-  <!-- Link to your CSS -->
-  <link rel="stylesheet" href="style.css" />
-  <style type="text/css">
-  /* Basic reset and font styling */
-  @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1e40af;
+      --text-dark: #1f2937;
+      --text-light: #6b7280;
+      --input-bg: #fff;
+      --input-border: #e5e7eb;
+      --card-bg: #fff;
+      --page-bg: #f9fafb;
+      --error-color: #ef4444;
+    }
 
-  * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family:"Roboto", sans-serif;
-  }
-  
-  body {
-  font-family: "Roboto", sans-serif;
-  background-color: #ffffff;
-  color: #000000;
-  }
-  
-  /* Container for the login form */
-  .login-container {
-  width: 350px;
-  max-width: 90%;
-  margin: 60px auto;
-  text-align: center;
-  border: 1px solid rgba(215,215,255,0.2);
-  padding: 30px 20px;
-  border-radius: 50px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  }
-  
-  /* Logo circle (the "P" in a circle) */
-  .logo-circle {
-  width: 60px;
-  height: 60px;
-  margin: 0 auto 20px;
-  border-radius: 50%;
-  background-color: #001970; /* Dark Blue or your preferred color */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  }
-  
-  .logo-img {
-  width: 80px;
-  height:auto;
-  }
-  /* Headings */
-  .login-container h1 {
-  font-size: 28px;
-  font-style:normal;
-  color: #001970; /* Dark Blue color */
-  padding: 5px 0;
-  }
-  
-  .login-container h2 {
-  font-size: 25px;
-  letter-spacing:.1px;
-  color: #001970;
-  font-weight:600;
-  margin-bottom: 50px;
-  }
-  
-  .login-container h3 {
-  font-size: 18px;
-  color: #001970;
-  margin-bottom: 20px;
-  text-transform:none;
-  }
-  
-  /* Form styling */
-  form {
-  width: 100%;
-  text-align: left;
-  }
-  
-  /* Input groups */
-  .input-group {
-  margin-bottom: 20px;
-  }
-  
-  .input-group label {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #000000;
-  }
-  
-  /* Wrapping icon + input together */
-  .input-wrapper {
-  position: relative;
-  }
-  
-  .input-wrapper i {
-  position: absolute;
-  top: 50%;
-  left: 10px;
-  transform: translateY(-50%);
-  color: #001970;
-  }
-  
-  .input-wrapper input {
-  width: 100%;
-  padding: 10px 10px 10px 35px;
-  border: 1px solid #001970;
-  border-radius: 50px;
-  font-size: 14px;
-  }
-  
-  /* Forgot password link */
-  .forgot-password-container {
-  text-align: right;
-  margin-bottom: 20px;
-  }
-  
-  .forgot-password {
-  color: red;
-  text-decoration: none;
-  font-size: 14px;
-  }
-  
-  .forgot-password:hover {
-  text-decoration: underline;
-  }
-  
-  /* Login button */
-  .login-btn {
-  width: 100%;
-  background-color: #001970; /* Dark Blue */
-  color: #ffffff;
-  padding: 12px;
-  border: none;
-  border-radius: 50px;
-  font-size: 16px;
-  cursor: pointer;
-  text-transform: uppercase;
-  }
-  
-  .login-btn:hover {
-  background-color: #0c2da1; /* Slightly lighter/darker shade */
-  }
-  .error {
-  	color:red;
-  	font-size:14px;
-  }
-  .login {
-  margin:20px 5px;
-  font-size:14px;
-  }
+    html[data-theme='dark'] {
+        --primary: #3b82f6;
+        --primary-hover: #60a5fa;
+        --text-dark: #f9fafb;
+        --text-light: #9ca3af;
+        --input-bg: #1f2937;
+        --input-border: #374151;
+        --card-bg: #111827;
+        --page-bg: #0d141c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--page-bg);
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 380px;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+      text-align: center;
+      position: relative;
+      transition: background-color 0.3s;
+    }
+
+    .login-card::before {
+      content: "";
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      width: 120px;
+      height: 120px;
+      background: rgba(37,99,235,0.1);
+      border-radius: 50%;
+      z-index: -1;
+    }
+
+    .login-card::after {
+      content: "";
+      position: absolute;
+      bottom: -40px;
+      left: -40px;
+      width: 100px;
+      height: 100px;
+      background: rgba(59,130,246,0.05);
+      border-radius: 50%;
+      z-index: -1;
+    }
+
+    .illustration {
+      width: 90px;
+      height: auto;
+      margin: 0 auto 1rem;
+    }
+
+    .login-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .login-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-light);
+      margin-bottom: 2rem;
+    }
+
+    form {
+      text-align: left;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.85rem 2.5rem 0.85rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 0.75rem;
+      font-size: 0.95rem;
+      color: var(--text-dark);
+      transition: all 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    
+    .password-reveal-icon {
+        position: absolute;
+        top: 50%;
+        right: 1rem;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: var(--text-light);
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .password-reveal-icon:hover {
+        opacity: 1;
+    }
+
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 0.85rem;
+      color: var(--primary);
+      text-decoration: none;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+
+    .login-btn {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      padding: 0.85rem;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .login-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .signup-link {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: var(--text-light);
+    }
+
+    .signup-link a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .error-message {
+        color: var(--error-color);
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
   </style>
 </head>
 <body>
 
-  <div class="login-container">
-    <!-- Logo or "P" icon -->
-    <div class="logo-circle">
-      <img class="logo-img" src="assets/images/logo.png" >
-    </div>
+  <div class="login-card">
+    <img src="assets/images/logo.png" class="illustration" alt="Login Illustration" />
 
-    <!-- Headings -->
-    <h1>Welcome</h1>
-    <h2>Sign in</h2>
+    <h1 class="login-title">Welcome Back</h1>
+    <p class="login-subtitle">Login to your account</p>
 
-    <!-- Login Form -->
-    <form id="loginForm" method="POST" onsubmit="return validateForm()">
-    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>" />
-    <p class="error" >
-    <?php if ($error): 
-    echo $error;
-    endif; ?>
-    </p>
-    <p class="error" id="error" ></p>
-      <div class="input-group">
-        <div class="input-wrapper">
-          <i class="fas fa-envelope"></i>
-          <input type="email" id="email" name="email" placeholder="e.g example@gmail.com" />
-        </div>
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+        <?php if ($error): ?>
+            <p class="error-message"><?= htmlspecialchars($error) ?></p>
+        <?php endif; ?>
+
+      <div class="form-group">
+        <input type="email" class="form-input" name="email" placeholder="Email Address" required/>
+      </div>
+      <div class="form-group">
+        <input type="password" class="form-input" name="password" id="password" placeholder="Password" required/>
+        <i class="fas fa-eye-slash password-reveal-icon" onclick="togglePasswordVisibility('password', this)"></i>
       </div>
 
-      <div class="input-group">
-        <div class="input-wrapper">
-          <i class="fas fa-lock"></i>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="••••••••"
-          />
-        </div>
-      </div>
+      <a href="forgot_password" class="forgot-link">Forgot Password?</a>
 
-      <div class="forgot-password-container">
-        <a href="forgot_password" class="forgot-password">Forgot password?</a>
-      </div>
-      <p class="login" > Don't have an account? 
-      	<a href="register" >Register</a>
-      </p>
-      <button type="submit" class="login-btn">Login</button>
+      <button class="login-btn" type="submit">Login</button>
     </form>
+
+    <div class="signup-link">
+      Don’t have an account? <a href="register">Sign Up</a>
+    </div>
   </div>
 
-  <!-- JavaScript file -->
-  <script type="text/javascript">
-  	function validateForm() {
-  	const email = document.getElementById("email").value.trim();
-  	const password = document.getElementById("password").value.trim();
-  	const error = document.getElementById("error");
-  	
-  	// Simple validation checks
-  	if (email === "" && password === "") {
-  	//alert("Please enter your credentials.");
-  	error.innerHTML = "Please enter your credentials"
-  	return false; // Prevent form submission
-  	}
-  	
-  	if (email === "") {
-  	//alert("Please enter your email.");
-  	error.innerHTML = "Please enter your email"
-  	return false; // Prevent form submission
-  	}
-  	
-  	if (password === "") {
-  	//alert("Please enter your password.");
-  	error.innerHTML = "Please enter your password"
-  	return false; // Prevent form submission
-  	}
- 	
-  	// If everything is filled in, allow form submission
-  	return true;
-  	}
-  
+  <script>
+      (function() {
+          const savedTheme = localStorage.getItem('theme');
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (savedTheme) {
+              document.documentElement.setAttribute('data-theme', savedTheme);
+          } else if (prefersDark) {
+              document.documentElement.setAttribute('data-theme', 'dark');
+          }
+      })();
+
+      function togglePasswordVisibility(inputId, icon) {
+          const input = document.getElementById(inputId);
+          if (input.type === "password") {
+              input.type = "text";
+              icon.classList.remove("fa-eye-slash");
+              icon.classList.add("fa-eye");
+          } else {
+              input.type = "password";
+              icon.classList.remove("fa-eye");
+              icon.classList.add("fa-eye-slash");
+          }
+      }
   </script>
+
 </body>
 </html>

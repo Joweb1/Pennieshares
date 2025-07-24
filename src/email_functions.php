@@ -5,8 +5,8 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/../vendor/autoload.php';
 
 function sendEmail($to, $subject, $body) {
-    $adminEmail = 'nahjonah00@gmail.com';
-    $password = 'xvwq kydb wilk gbir';
+    $adminEmail = 'penniepoint@gmail.com';
+    $password = 'bkdw qsmw xtmh bniw';
 
     $mail = new PHPMailer(true);
 
@@ -42,7 +42,7 @@ function getEmailTemplate($templateName, $data) {
     if (file_exists($templatePath)) {
         $template = file_get_contents($templatePath);
         foreach ($data as $key => $value) {
-            $template = str_replace("{{{$key}}}", $value, $template);
+            $template = str_replace("{{{$key}}}", $value ?? '', $template);
         }
         return $template;
     } else {
@@ -57,6 +57,16 @@ function sendNotificationEmail($template, $data, $to, $subject) {
     $emailContent = str_replace('{{header}}', $subject, $genericTemplate);
     $emailContent = str_replace('{{body}}', $body, $emailContent);
 
-    sendEmail($to, $subject, $emailContent);
+    return sendEmail($to, $subject, $emailContent);
+}
+
+function send_broker_credit_email($to, $username, $amount, $broker_name) {
+    $subject = "You've Received Funds from a Broker";
+    $data = [
+        'username' => $username,
+        'amount' => $amount,
+        'broker_name' => $broker_name
+    ];
+    return sendNotificationEmail('broker_credit_user', $data, $to, $subject);
 }
 ?>

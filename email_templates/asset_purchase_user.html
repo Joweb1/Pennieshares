@@ -1,0 +1,40 @@
+<p>Hello {{username}},</p>
+<p>Thank you for your recent asset purchase on Pennieshares! We're excited to confirm the details of your investment.</p>
+
+<div style="background-color: #f0f2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <h3 style="color: #007bff; margin-bottom: 15px;">Purchase Details:</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asset Name:</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{asset_name}}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Quantity:</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{quantity}}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Price per Unit:</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">SV{{price_per_unit}}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Total Cost:</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">SV{{total_cost}}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Expected Payout Cap:</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">SV{{payout_cap}}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Duration:</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{duration}}</td>
+        </tr>
+    </table>
+</div>
+
+<div style="text-align: center; margin-bottom: 20px;">
+    <img src="{{asset_image_url}}" alt="{{asset_name}}" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;">
+</div>
+
+<p>You can view your new asset and track its performance on your dashboard.</p>
+<p>Thank you for choosing Pennieshares!</p>
+<p>Best regards,<br>The Pennieshares Team</p>

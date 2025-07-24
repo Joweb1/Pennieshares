@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../src/functions.php';
 
 check_auth();
+processPendingProfits($pdo);
 
 // Get current user data
 $user = $_SESSION['user'];
@@ -587,7 +588,7 @@ if (!isset($_SESSION['last_daily_email_sent']) || $_SESSION['last_daily_email_se
     <div class="box">
     <a href="about" >
       <i class="fas fa-building"></i>
-      <p>Penniepoint</p>
+      <p>Pennieshares</p>
      </a>
     </div>
     <div class="box">
@@ -602,10 +603,10 @@ if (!isset($_SESSION['last_daily_email_sent']) || $_SESSION['last_daily_email_se
       <p>Partner</p>
     </a>
     </div>
-       <div class="box">
-    <a href="stages" >
-      <i class="fas fa-layer-group"></i>
-      <p>Stages</p>
+    <div class="box">
+    <a href="faqs" >
+      <i class="fas fa-question-circle"></i>
+      <p>FAQs</p>
     </a>
     </div>
         <div class="box">
@@ -617,43 +618,6 @@ if (!isset($_SESSION['last_daily_email_sent']) || $_SESSION['last_daily_email_se
       <i class="fas fa-id-card"></i>
       <p>ID-Card</p>
      </a>
-    </div>
-  </section>
-
-  <!-- Additional Info Section -->
-            <?php if($user['status'] == 2): ?>
-
-  <section class="info-section">
-    <div class="info-block">
-    	<div class="user-c" >
-    		<div class="user-i" ><i class="fas fa-user" ></i></div>
-    		<p>1st Start</p>
-    	</div>
-    	<div>
-      		<h4>Understanding Your Business </h4>
-      		<p>The business is all about ...</p>
-    	</div>
-    	<div class="medal gradient-gold"> <i class="fas fa-medal "></i> VIP1</div>
-    </div>
-    <div class="info-block">
-    	<div class="user-c" >
-    		<div class="user-i" ><i class="fas fa-user" ></i></div>
-    		<p>2nd Start</p>
-    	</div>
-    	<div class="text-e" >
-      		<h4>Your First Assignment </h4>
-      		<p>Here is your assignment and guide ...</p>
-      	</div>
-      		<div class="medal gradient-gold"> <i class="fas fa-medal "></i> VIP1</div>
-    </div>
-  </section>
-<?php endif; ?>
-<section class="icon-boxs">
-    <div class="box">
-    <a href="faqs" >
-      <i class="fas fa-question-circle"></i>
-      <p>FAQs</p>
-    </a>
     </div>
   </section>
 </div>

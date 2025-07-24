@@ -1,4 +1,14 @@
 <?php
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/kyc_functions.php';
+
+$kyc_status = getKycStatus($pdo, $user['id']);
+if (!$kyc_status || $kyc_status['status'] !== 'verified') {
+    $_SESSION['show_kyc_popup'] = true;
+    header('Location: /wallet');
+    exit;
+}
+
 require_once __DIR__ . '/../src/functions.php';
 check_auth(); // Ensure user is logged in
 

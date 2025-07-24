@@ -22,6 +22,16 @@ $is_verified = ($user['status'] == 2);
             --container-bg: #ffffff;
         }
 
+        html[data-theme='dark'] {
+            --primary-color: #60a5fa;
+            --secondary-color: #60a5fa;
+            --success-color: #4ade80;
+            --error-color: #f87171;
+            --background-color: #0d141c;
+            --text-color: #f9fafb;
+            --container-bg: #111827;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -33,6 +43,7 @@ $is_verified = ($user['status'] == 2);
             background-color: var(--background-color);
             color: var(--text-color);
             overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .loading-container {
@@ -41,13 +52,14 @@ $is_verified = ($user['status'] == 2);
             padding: 50px;
             border-radius: 25px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-            width: 90%;
+            width: 60%;
             max-width: 400px;
             position: relative;
             overflow: hidden;
             transform: scale(0.95);
             opacity: 0;
             animation: fadeInScale 0.8s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+            transition: background-color 0.3s;
         }
 
         @keyframes fadeInScale {
@@ -58,9 +70,10 @@ $is_verified = ($user['status'] == 2);
         }
 
         .logo {
-            width: 100px;
-            height: 100px;
+            width: 90px;
+            height: auto;
             margin: 0 auto 20px;
+            text-align:center;
             animation: bounceIn 1s ease-out;
         }
 
@@ -81,6 +94,7 @@ $is_verified = ($user['status'] == 2);
             font-weight: 700;
             color: var(--primary-color);
             margin-bottom: 30px;
+            text-align:center;
         }
 
         .status-list {
@@ -144,13 +158,15 @@ $is_verified = ($user['status'] == 2);
         }
 
         .status-item.completed .text {
-            color: #999;
-            text-decoration: line-through;
+            color: var(--text-color);
+            text-align:left;
+            /* text-decoration: line-through; */
         }
         
         .status-item.failed .text {
-            color: #999;
-            text-decoration: line-through;
+            color: var(--text-color);
+            text-align:left;
+            /* text-decoration: line-through; */
         }
 
         .progress-bar {
@@ -226,6 +242,7 @@ $is_verified = ($user['status'] == 2);
     </style>
 </head>
 <body>
+    <div style="position: fixed; top: 10px; width: 100%; text-align: center; font-weight: bold; font-size: 1.2em; color: var(--primary-color); z-index: 100;"></div>
     <div class="loading-container">
         <img src="/assets/images/logo.png" alt="Logo" class="logo">
         <h1 class="loading-title">Accessing Your Office</h1>
@@ -255,9 +272,19 @@ $is_verified = ($user['status'] == 2);
     </div>
 
     <audio id="confirmation-sound" src="/assets/sound/new-notification-07-210334.mp3" preload="auto"></audio>
-    <audio id="denied-sound" src="/assets/sound/access-denied.mp3" preload="auto"></audio>
+    <audio id="denied-sound" src="/assets/sound/error-call.mp3" preload="auto"></audio>
 
     <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else if (prefersDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+
         document.addEventListener('DOMContentLoaded', () => {
             const isVerified = <?php echo json_encode($is_verified); ?>;
             const statusItems = document.querySelectorAll('.status-item');
@@ -318,7 +345,7 @@ $is_verified = ($user['status'] == 2);
                     navigator.vibrate([100, 50, 100, 50, 100]);
                 }
                 setTimeout(() => {
-                    window.location.href = 'dashboard?verification_required=true';
+                    window.location.href = 'payment';
                 }, 2000);
             };
 

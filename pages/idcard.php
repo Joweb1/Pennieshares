@@ -33,6 +33,31 @@ if($user['status'] != 2){
             color: #333;
         }
 
+        .back{
+            background: transparent; /* Transparent background */
+            color:#333; /* Dark color for the icon */
+            border-radius:10px;
+            font-size:20px;
+            position:absolute;
+            z-index:2;
+            top:5px;
+            font-weight:600;
+            left:10px;
+            padding:10px 10px;
+            text-align:center;
+            box-shadow: none; /* Remove shadow for transparent background */
+        }
+        .back:hover {
+            background: rgba(0, 0, 0, 0.1); /* Slight hover effect */
+        }
+        .back svg {
+            fill: currentColor; /* Ensure SVG inherits the color */
+        }
+        a{
+            color:inherit;
+            text-decoration:none;
+        }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -455,6 +480,7 @@ if($user['status'] != 2){
     </style>
 </head>
 <body>
+    <div class="back" ><a href="/profile_view" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M160,220a12,12,0,0,1-8.49-3.51L80,136.49a12,12,0,0,1,0-17L151.51,39.51a12,12,0,0,1,17,17L97,128l71.52,71.51A12,12,0,0,1,160,220Z"></path></svg></a></div>
     <div class="container">
         <div class="card-section">
         	<div class="form-section head">
@@ -467,7 +493,7 @@ if($user['status'] != 2){
                     
                     <div class="card-header">
                     	<svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300pt" height="300pt" viewBox="0 0 300 300"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,300.000000) scale(0.100000,-0.100000)" stroke="none"> <path d="M1321 2990 c-735 -93 -1286 -690 -1318 -1430 -25 -580 303 -1134 822 -1390 135 -66 233 -100 380 -132 144 -31 436 -31 580 0 321 70 585 215 795 438 284 302 426 687 406 1104 -37 780 -667 1394 -1451 1415 -77 2 -173 0 -214 -5z m629 -485 c136 -23 236 -70 311 -147 77 -80 109 -171 109 -316 0 -171 -48 -329 -139 -459 -88 -125 -181 -175 -336 -181 -124 -4 -241 23 -412 97 -113 48 -114 48 -125 27 -7 -11 -52 -218 -100 -459 -48 -241 -90 -448 -93 -458 -20 -62 -133 -139 -205 -139 -84 0 -179 74 -180 140 -1 14 79 425 176 915 122 613 175 899 171 918 -4 15 -19 33 -33 39 -37 17 -24 32 32 38 106 11 738 -1 824 -15z m-489 -1035 c98 -41 226 -77 302 -87 l62 -7 -115 -12 c-63 -7 -170 -13 -237 -13 l-123 -1 0 24 c0 35 22 126 30 126 4 0 40 -14 81 -30z"/> <path d="M1485 2199 c-27 -116 -115 -578 -115 -606 l0 -36 113 6 c244 14 352 68 422 210 72 147 70 306 -4 377 -52 50 -96 61 -263 67 l-147 5 -6 -23z"/> </g> </svg> 
-                    	<div class="company-logo">Penniepoint</div>
+                    	<div class="company-logo">Pennieshares</div>
                     </div>
                     
                     <div class="card-body">
@@ -477,7 +503,7 @@ if($user['status'] != 2){
                         
                         <div class="employee-info">
                             <h3><?= htmlspecialchars($user['fullname']) ?></h3>
-                            <p>Account Analyst</p>
+                            <p>Licensed Stockholder</p>
                             <p><strong>Partnering Code:</strong> <?= htmlspecialchars($user['partner_code']) ?></p>
                         </div>
 
@@ -494,7 +520,7 @@ if($user['status'] != 2){
                     
                     <div class="terms-section">
                         <h4>Terms And Conditions</h4>
-                        <p>This ID card is the property of Penniepoint and must be returned upon termination of partnership. Unauthorized use, duplication, or modification is strictly prohibited and may result in legal action.</p>
+                        <p>This ID card is the property of Pennieshares and must be returned upon termination of partnership. Unauthorized use, duplication, or modification is strictly prohibited and may result in legal action.</p>
                     </div>
 
                     <div class="contact-info">
@@ -506,9 +532,9 @@ if($user['status'] != 2){
 
                     <div class="contact-info comp">
                         <h4>Company's Info</h4>
-                        <p><strong>Email:</strong> support@penniepoint.com</p>
-                        <p><strong>Call:</strong> +234 913 558 0911</p>
-                        <p><strong>Visit:</strong> https://www.penniepoint.com</p>
+                        <p><strong>Email:</strong> support@pennieshares.com</p>
+                        <p><strong>Call:</strong> +234 913 508 0814</p>
+                        <p><strong>Visit:</strong> https://www.pennieshares.penniepoint.com</p>
                     </div>
 
                     <div class="barcode">||||||| |||||||| ||||||| ||||| ||||||| ||||| ||||||</div>

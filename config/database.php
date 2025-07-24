@@ -31,8 +31,35 @@ try {
     if (!in_array('is_admin', $user_columns)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
     }
+    if (!in_array('is_broker', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_broker INTEGER DEFAULT 0");
+    }
+    if (!in_array('is_verified', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0");
+    }
     if (!in_array('last_login_email_sent', $user_columns)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN last_login_email_sent DATE");
+    }
+    if (!in_array('otp_code', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN otp_code TEXT");
+    }
+    if (!in_array('otp_expires_at', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN otp_expires_at DATETIME");
+    }
+    if (!in_array('total_return', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN total_return DECIMAL(10, 2) DEFAULT 0.00");
+    }
+    if (!in_array('performance_chart_data', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN performance_chart_data TEXT");
+    }
+    if (!in_array('performance_value', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN performance_value DECIMAL(10, 2)");
+    }
+    if (!in_array('performance_change', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN performance_change DECIMAL(10, 2)");
+    }
+    if (!in_array('last_performance_update', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN last_performance_update DATE");
     }
 
     // --- Create Payment Proofs Table ---
@@ -116,6 +143,20 @@ try {
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )");
 
+    // --- Create Pending Profits Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pending_profits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        receiving_asset_id INTEGER NOT NULL,
+        fractional_amount DECIMAL(10, 2) NOT NULL,
+        payout_type TEXT NOT NULL, -- 'generational' or 'shared'
+        credit_at DATETIME NOT NULL,
+        is_credited INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(receiving_asset_id) REFERENCES assets(id) ON DELETE CASCADE
+    )");
+
     // Add total_generational_pot and total_shared_pot columns to company_funds if they don't exist
     $company_funds_columns = $pdo->query("PRAGMA table_info(company_funds)")->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('total_generational_pot', $company_funds_columns)) {
@@ -128,7 +169,42 @@ try {
     // --- Initial Data Seeding ---
     $pdo->exec("INSERT OR IGNORE INTO company_funds (id, total_company_profit, total_reservation_fund, last_updated) VALUES (1, 0.00, 0.00, datetime('now'))");
 
-    
+    // --- Create KYC Verifications Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS kyc_verifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        full_name TEXT,
+        dob TEXT,
+        address TEXT,
+        state TEXT,
+        bvn TEXT,
+        nin TEXT,
+        passport_path TEXT,
+        national_id_path TEXT,
+        proof_of_address_path TEXT,
+        selfie_path TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )");
+
+    // --- Create Expo Push Tokens Table ---
+    // --- Create Expo Push Tokens Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS expo_push_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);");
+
+    // --- Create Push Subscriptions Table (for web push) ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);");
+
+    // --- Create Trigger to Update `updated_at` timestamp ---
+    $pdo->exec("
+        CREATE TRIGGER IF NOT EXISTS update_kyc_verifications_updated_at
+        AFTER UPDATE ON kyc_verifications
+        FOR EACH ROW
+        BEGIN
+            UPDATE kyc_verifications SET updated_at = datetime('now') WHERE id = OLD.id;
+        END;
+    ");
     
 } catch (PDOException $e) {
     die("Database connection failed: " . $e->getMessage());

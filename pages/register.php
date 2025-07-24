@@ -3,7 +3,6 @@ require_once __DIR__ . '/../src/functions.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-    generateCsrfToken();
 }
 verify_auth();
 
@@ -25,18 +24,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!$email) {
         $errors = "Invalid email format";
     }
-    // Add these validations
+    
     if (!empty($_POST['referral'])) {
-    if (!preg_match('/^[a-zA-Z]{2}\d{5}$/', $_POST['referral'])) {
-    $errors = "Invalid partner code format";
-    } elseif (!validatePartnerCode($_POST['referral'])) {
-    $errors = "Invalid referral partner code";
-    }
+        if (!preg_match('/^[a-zA-Z]{2}\d{5}$/', $_POST['referral'])) {
+            $errors = "Invalid partner code format";
+        } elseif (!validatePartnerCode($pdo, $_POST['referral'])) {
+            $errors = "Invalid referral partner code";
+        }
     }
     
-    // Validate username format
     if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $_POST['username'])) {
-    $errors = "Username must be 3-20 characters (letters, numbers, underscores)";
+        $errors = "Username must be 3-20 characters (letters, numbers, underscores)";
     }
     
     if (strlen($_POST['password']) < 8) {
@@ -44,9 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     
     if ($errors == '') {
-        $existingUser = getUserByEmail($email);
+        $existingUser = getUserByEmail($pdo, $email);
         if (!$existingUser) {
             $success = registerUser(
+                $pdo,
                 $_POST['fullname'],
                 $email,
                 $_POST['username'],
@@ -56,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             );
             
             if ($success) {
-                header("Location: login");
+                $_SESSION['success_message'] = "Registration successful! An OTP has been sent to your email for verification.";
+                header("Location: verify_registration_otp");
                 exit;
             } else {
                 $errors = "Registration failed. Please try again.";
@@ -66,378 +66,321 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 }
+$partnercode = $_GET['partnercode'] ?? '';
 ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Register Page</title>
-    
-    <!-- Font Awesome (CDN) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Sign Up</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1e40af;
+      --text-dark: #1f2937;
+      --text-light: #6b7280;
+      --input-bg: #fff;
+      --input-border: #e5e7eb;
+      --card-bg: #fff;
+      --page-bg: #f9fafb;
+      --error-color: #ef4444;
+    }
 
-<style>
+    html[data-theme='dark'] {
+        --primary: #3b82f6;
+        --primary-hover: #60a5fa;
+        --text-dark: #f9fafb;
+        --text-light: #9ca3af;
+        --input-bg: #1f2937;
+        --input-border: #374151;
+        --card-bg: #111827;
+        --page-bg: #0d141c;
+    }
 
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
-
-    /* Basic reset */
     * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    }
-    
-    /* Body styling */
-    body {
-    font-family: "Roboto", sans-serif;
-    background-color: #ffffff;
-    color: #000000;
-    }
-    
-    /* Container for the registration form */
-    .container {
-    width: 400px;
-    max-width: 90%;
-    margin: 40px auto;
-    border: 1px solid rgba(215,215,255,0.5);
-    padding: 30px 20px;
-    border-radius: 50px;
-    position: relative; /* allows us to position the logo circle in the corner */
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    
-    /* Logo circle (the "P" in a circle), positioned top-right */
-    .logo-circle {
-    position: absolute;
-    top: 30px;
-    right: 30px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background-color: #001970; /* Dark Blue */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
-    .logo-img {
-    width: 58px;
-    height:auto;
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--page-bg);
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+      transition: background-color 0.3s, color 0.3s;
     }
-    
-    /* Header text */
-    .container h1 {
-    font-size: 25px;
-    text-align: left;
-    color: #001970; /* Dark Blue */
-    line-height: 1.4;
-    margin-bottom: 10px;
-    font-weight:400;
+
+    .signup-card {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+      text-align: center;
+      position: relative;
+      transition: background-color 0.3s;
     }
-    
-    .container h1 strong {
-    font-weight: 800;
-    font-size:25px;
+
+    .signup-card::before {
+      content: "";
+      position: absolute;
+      top: -25px;
+      right: -25px;
+      width: 100px;
+      height: 100px;
+      background: rgba(37,99,235,0.1);
+      border-radius: 50%;
+      z-index: -1;
     }
-    
-    .container h2 {
-    text-align: center;
-    color: black;
-    font-size: 24px;
-    margin: 20px 0;
-    background: linear-gradient(180deg, 
-    rgba(75,14,200,1),  /* Darkish gold */
-    rgba(20,20,150,1), /* Classic gold */
-    rgba(15,18,100,1) 60% /* Darkish gold */
-    );
-    background-size: 100%;
-    
-    /* Use background clip to show gradient through the text */
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent;
+
+    .signup-card::after {
+      content: "";
+      position: absolute;
+      bottom: -20px;
+      left: -20px;
+      width: 100px;
+      height: 100px;
+      background: rgba(59,130,246,0.05);
+      border-radius: 50%;
+      z-index: -1;
     }
-    
-    /* Form styling */
+
+    .illustration {
+      width: 90px;
+      height: auto;
+      margin: 0 auto 1rem;
+    }
+
+    .signup-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .signup-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-light);
+      margin-bottom: 1.5rem;
+    }
+
     form {
-    margin-top: 20px;
+      text-align: left;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.85rem 2.5rem 0.85rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 0.75rem;
+      font-size: 0.95rem;
+      color: var(--text-dark);
+      transition: all 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
     }
     
-    .input-group {
-    margin-bottom: 20px;
+    .password-reveal-icon {
+        position: absolute;
+        top: 50%;
+        right: 1rem;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: var(--text-light);
+        opacity: 0.7;
+        transition: opacity 0.2s;
     }
-    
-    .input-group label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: #000000;
+    .password-reveal-icon:hover {
+        opacity: 1;
     }
-    
-    /* Wrapping icon + input together */
-    .input-wrapper {
-    position: relative;
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1rem 0;
+      font-size: 0.85rem;
+      color: var(--text-light);
     }
-    
-    .input-wrapper i {
-    position: absolute;
-    top: 50%;
-    left: 10px;
-    transform: translateY(-50%);
-    color: #001970;
+
+    .checkbox-container a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
     }
-    
-    .input-wrapper input {
-    width: 100%;
-    padding: 10px 10px 10px 35px; 
-    border: 1px solid #001970;
-    border-radius: 50px;
-    font-size: 14px;
+
+    .signup-btn {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      padding: 0.85rem;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s ease;
     }
-    
-    /* Terms & Conditions */
-    .terms-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
+
+    .signup-btn:hover {
+      background: var(--primary-hover);
     }
-    
-    .terms-label {
-    margin-left: 5px;
-    font-size: 12px;
-    font-weight:600;
+
+    .login-link {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: var(--text-light);
     }
-    
-    /* Register button */
-    .register-btn {
-    width: 100%;
-    background-color: #001970; /* Dark Blue */
-    color: #ffffff;
-    padding: 12px;
-    border: none;
-    border-radius: 50px;
-    font-size: 16px;
-    font-weight:600;
-    cursor: pointer;
-    text-transform: uppercase;
+
+    .login-link a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
     }
-    
-    .register-btn:hover {
-    background-color: #0c2da1; /* Slightly lighter/darker shade */
+    .error-message {
+        color: var(--error-color);
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        text-align: center;
     }
-    .login {
-    	margin:20px 5px;
-    	font-size:14px;
-    }
-    </style>
-    </head>
-    <body>
-    <div class="container">
-    <!-- Logo circle in the top-right corner -->
-    <div class="logo-circle">
-    <img class="logo-img" src="assets/images/logo.png" >
-    </div>
-    
-    <!-- Main header text -->
-    <h1><strong>Partner</strong> <br /> with <strong>Penniepoint</strong> <br /> as an <strong>Analyst</strong></h1>
-    
-    <!-- Register heading -->
-    <h2>Sign up</h2>
-    
-    <!-- Registration form -->
-    <form id="registerForm" onsubmit="return validateForm()" method="POST" >
-    <!-- Name -->
-    <p id="error" style="color:red;"  ></p><?php if (isset($errors)) echo "<p style='color:red;'>$errors</p>"; ?>
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-user"></i>
-    <input 
-    type="text" 
-    id="username" 
-    name="username" 
-    placeholder="Enter username" 
-    />
-    </div>
-    </div>
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-user-plus"></i>
-    <input 
-    type="text" 
-    id="name" 
-    name="fullname" 
-    placeholder="Enter your full name" 
-    />
-    </div>
-    </div>
-    
-    <!-- Email -->
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-envelope"></i>
-    <input 
-    type="email" 
-    id="email" 
-    name="email" 
-    placeholder="Enter your email" 
-    />
-    </div>
-    </div>
-    
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-phone"></i>
-    <input 
-    type="tel" 
-    id="phone" 
-    name="phone" 
-    placeholder="Enter phone number" 
-    />
-    </div>
-    </div>
-    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-users"></i>
-    <input 
-    type="text" 
-    id="referral" 
-    name="referral" 
-    value="<?= $partnercode ?>" 
-    placeholder="Enter Partner code" 
-    required="required" 
-    pattern="[a-zA-Z]{2}\d{5}" 
-    title="Format: 2 letters followed by 5 digits (e.g. ab12345)"
-    />
-    </div>
-    </div>
-    
-    <!-- Password -->
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-lock"></i>
-    <input 
-    type="password" 
-    id="password" 
-    name="password" 
-    placeholder="Enter your password" 
-    />
-    </div>
-    </div>
-    
-    <!-- Confirm Password -->
-    <div class="input-group">
-    <div class="input-wrapper">
-    <i class="fas fa-lock"></i>
-    <input 
-    type="password" 
-    id="confirmPassword" 
-    name="password_confirm" 
-    placeholder="Confirm your password" 
-    />
-    </div>
-    </div>
-    
-    <!-- Terms & Conditions -->
-    <div class="terms-container">
-    <input 
-    type="checkbox" 
-    id="terms" 
-    name="terms" 
-    />
-    <label for="terms" class="terms-label">
-    Read and click to agree to <a href="#" >terms and conditions</a>
-    </label>
-    </div>
-    
-    <!-- Register button -->
-    <button type="submit" class="register-btn">Register</button>
+  </style>
+</head>
+<body>
+
+  <div class="signup-card">
+    <img src="assets/images/logo.png" class="illustration" alt="Signup Illustration" />
+
+    <h1 class="signup-title">Create Account</h1>
+    <p class="signup-subtitle">Fill in your details to get started</p>
+
+    <form method="POST" onsubmit="return validateForm()">
+      <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+      
+      <?php if ($errors): ?>
+        <p class="error-message"><?= htmlspecialchars($errors) ?></p>
+      <?php endif; ?>
+      <p class="error-message" id="error"></p>
+
+      <div class="form-group">
+        <input type="text" class="form-input" name="username" id="username" placeholder="Username" required />
+      </div>
+      <div class="form-group">
+        <input type="text" class="form-input" name="fullname" id="name" placeholder="Full Name" required />
+      </div>
+      <div class="form-group">
+        <input type="email" class="form-input" name="email" id="email" placeholder="Email Address" required />
+      </div>
+      <div class="form-group">
+        <input type="tel" class="form-input" name="phone" id="phone" placeholder="Phone Number" required />
+      </div>
+      <div class="form-group">
+        <input type="text" class="form-input" name="referral" id="referral" placeholder="Partner Code (Optional)" value="<?= htmlspecialchars($partnercode) ?>" pattern="[a-zA-Z]{2}\d{5}" title="Format: 2 letters followed by 5 digits (e.g. ab12345)"/>
+      </div>
+      <div class="form-group">
+        <input type="password" class="form-input" name="password" id="password" placeholder="Password" required />
+        <i class="fas fa-eye-slash password-reveal-icon" onclick="togglePasswordVisibility('password', this)"></i>
+      </div>
+      <div class="form-group">
+        <input type="password" class="form-input" name="password_confirm" id="confirmPassword" placeholder="Confirm Password" required />
+        <i class="fas fa-eye-slash password-reveal-icon" onclick="togglePasswordVisibility('confirmPassword', this)"></i>
+      </div>
+
+      <div class="checkbox-container">
+        <input type="checkbox" id="terms" name="terms" required/>
+        <label for="terms">I agree to the <a href="terms">Terms & Conditions</a></label>
+      </div>
+
+      <button class="signup-btn" type="submit">Register</button>
     </form>
-    <p class="login" > Already have an account? 
-    	<a href="login" >Login</a>
-    </p>
+
+    <div class="login-link">
+      Already have an account? <a href="login">Login</a>
     </div>
-    
-    <!-- Link to JavaScript file -->
-    <script type="text/javascript">
+  </div>
+  <script type="text/javascript">
+    (function() {
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        } else if (prefersDark) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    })();
+
     function validateForm() {
-    const username = document.getElementById("username").value.trim();
-    const name = document.getElementById("name").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const phone = document.getElementById("phone").value.trim();
-    const referral = document.getElementById("referral").value.trim();
-    const password = document.getElementById("password").value.trim();
-    const confirmPassword = document.getElementById("confirmPassword").value.trim();
-    const terms = document.getElementById("terms");
-    const errors = document.getElementById("error");
-    
-    // Check if name is empty
-    if (name === "") {
-    errors.innerHTML = "Please enter your name.";
-    return false;
+        const username = document.getElementById("username").value.trim();
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const phone = document.getElementById("phone").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const confirmPassword = document.getElementById("confirmPassword").value.trim();
+        const terms = document.getElementById("terms");
+        const error = document.getElementById("error");
+
+        error.textContent = ''; // Clear previous errors
+
+        if (name === "" || username === "" || email === "" || phone === "" || password === "" || confirmPassword === "") {
+            error.textContent = "Please fill in all required fields.";
+            return false;
+        }
+
+        const emailRegex = /^[\S@]+@[\S@]+\.[\S@]+$/;
+        if (!emailRegex.test(email)) {
+            error.textContent = "Please enter a valid email address.";
+            return false;
+        }
+        
+        if (password.length < 8) {
+            error.textContent = "Password must be at least 8 characters long.";
+            return false;
+        }
+
+        if (password !== confirmPassword) {
+            error.textContent = "Passwords do not match. Please try again.";
+            return false;
+        }
+
+        if (!terms.checked) {
+            error.textContent = "Please agree to the terms and conditions.";
+            return false;
+        }
+
+        return true;
     }
-    
-    if (username === "") {
-    errors.innerHTML = "Please enter your username.";
-    return false;
+
+    function togglePasswordVisibility(inputId, icon) {
+        const input = document.getElementById(inputId);
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove("fa-eye-slash");
+            icon.classList.add("fa-eye");
+        } else {
+            input.type = "password";
+            icon.classList.remove("fa-eye");
+            icon.classList.add("fa-eye-slash");
+        }
     }
-    
-    // Check if email is empty
-    if (email === "") {
-    errors.innerHTML = "Please enter your email.";
-    return false;
-    }
-    
-    if (referral === "") {
-    errors.innerHTML = "Please enter your referral partner code.";
-    return false;
-    }
-    
-    if (phone === "") {
-    errors.innerHTML = "Please enter your phone no.";
-    return false;
-    }
-    
-    // Simple email format check (not fully RFC compliant, but enough for demonstration)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-    errors.innerHTML = "Please enter a valid email address.";
-    return false;
-    }
-    
-    // Check if password is empty
-    if (password === "") {
-    errors.innerHTML = "Please enter your password.";
-    return false;
-    }
-    
-    // Check if confirm password is empty
-    if (confirmPassword === "") {
-    errors.innerHTML = "Please confirm your password.";
-    return false;
-    }
-    
-    // Check if passwords match
-    if (password !== confirmPassword) {
-    errors.innerHTML = "Passwords do not match. Please try again.";
-    return false;
-    }
-    
-    // Check if terms & conditions are agreed to
-    if (!terms.checked) {
-    errors.innerHTML = "Please agree to the terms and conditions.";
-    return false;
-    }
-    
-    // If everything is valid, allow form submission
-    return true;
-    }
-    
-    </script>
-    </body>
-    </html>
+  </script>
+</body>
+</html>

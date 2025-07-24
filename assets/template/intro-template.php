@@ -11,10 +11,10 @@
     }
 ?>
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=0.85" />
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -426,6 +426,10 @@
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <li><a href="admin"><span class="material-icons-outlined">admin_panel_settings</span>Admin Panel</a></li>
           <li><a href="admin_verify"><span class="material-icons-outlined">verified_user</span>Verify Users</a></li>
+          <li><a href="admin_kyc"><span class="material-icons-outlined">badge</span>KYC</a></li>
+          <?php endif; ?>
+          <?php if (isset($_SESSION['user']) && isset($_SESSION['user']['is_broker']) && $_SESSION['user']['is_broker'] == 1): ?>
+          <li><a href="broker_verify"><span class="material-icons-outlined">verified_user</span>Verify Users</a></li>
           <?php endif; ?>
         </ul>
       </nav>
@@ -454,6 +458,10 @@
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <a href="admin"><span class="material-icons-outlined">admin_panel_settings</span></a>
           <a href="admin_verify"><span class="material-icons-outlined">verified_user</span></a>
+          <a href="admin_kyc"><span class="material-icons-outlined">badge</span></a>
+          <?php endif; ?>
+          <?php if (isset($_SESSION['user']) && isset($_SESSION['user']['is_broker']) && $_SESSION['user']['is_broker'] == 1): ?>
+          <a href="broker_verify"><span class="material-icons-outlined">verified_user</span></a>
           <?php endif; ?>
         </nav>
         </nav>
@@ -480,3 +488,57 @@
       <!-- Main Content Area - This is where the page-specific content will be inserted -->
       <main class="main-content">
         <div class="content-wrapper">
+
+<script>
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.register('/service-worker.js').then(function(swReg) {
+            console.log('Service Worker is registered', swReg);
+
+            swReg.pushManager.getSubscription().then(function(subscription) {
+                if (subscription === null) {
+                    // User is not subscribed
+                    subscribeUser(swReg);
+                } else {
+                    // User is already subscribed
+                    console.log('User is already subscribed.');
+                }
+            });
+        }).catch(function(error) {
+            console.error('Service Worker Error', error);
+        });
+    }
+
+    function subscribeUser(swReg) {
+        const applicationServerKey = urlBase64ToUint8Array('BM_tkh1xk3RaPEIzqnAOmWAuuQnh9p6lJsSV6BuLAfnYUflIgOz9B3OhkSVlXgykHLHwaexwEQGLwc0eOll2tC8');
+        swReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+        }).then(function(subscription) {
+            console.log('User is subscribed.');
+            saveSubscription(subscription);
+        }).catch(function(err) {
+            console.log('Failed to subscribe the user: ', err);
+        });
+    }
+
+    function saveSubscription(subscription) {
+        fetch('/save-subscription.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(subscription)
+        });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+</script>
