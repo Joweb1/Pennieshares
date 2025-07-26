@@ -4,6 +4,11 @@ check_auth();
 
 $user = $_SESSION['user'];
 
+if ($user['status'] == 1 || $user['status'] == 2) {
+// Redirect to payment page
+    header("Location: wallet");
+    exit;
+}
 // Handle retry action
 if (isset($_GET['action']) && $_GET['action'] === 'retry') {
     deletePaymentProofForUser($pdo, $user['id']);

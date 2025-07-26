@@ -228,6 +228,11 @@ function check_auth() {
         header("Location: verify_registration_otp");
         exit;
     }
+    if (($_SESSION['user']['status'] ?? 0) == 0) {
+        // Redirect to payment page
+        header("Location: payment");
+        exit;
+    }
 }
 function verify_auth() {
     if (session_status() === PHP_SESSION_NONE) {
