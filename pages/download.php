@@ -921,16 +921,16 @@
   <header class="main-header">
     <div class="container">
       <div class="nav">
-        <a class="brand" href="#">
+        <a class="brand" href="home">
           <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <h1>Pennieshares</h1>
         </a>
 
         <nav class="header-nav-desktop" aria-label="Primary">
           <ul>
-            <li><a href="#stocks"><span class="material-icons-outlined">show_chart</span>Stocks & ETFs</a></li>
-            <li><a href="#api"><span class="material-icons-outlined">hub</span>Business & API</a></li>
-            <li><a href="#blog"><span class="material-icons-outlined">article</span>Blog</a></li>
+            <li><a href="home#stocks"><span class="material-icons-outlined">show_chart</span>Stocks & ETFs</a></li>
+            <li><a href="home#api"><span class="material-icons-outlined">hub</span>Business & API</a></li>
+            <li><a href="home#blog"><span class="material-icons-outlined">article</span>Blog</a></li>
             <li><a href="download"><span class="material-icons-outlined">download</span>Download App</a></li>
           </ul>
         </nav>
@@ -959,12 +959,12 @@
         </button>
       </div>
       <ul class="nav-mobile-links">
-        <li><a href="/" class="active"><span class="material-icons-outlined">home</span>Home</a></li>
-        <li><a href="/download"><span class="material-icons-outlined">download</span>Download App</a></li>
-        <li><a href="#what"><span class="material-icons-outlined">info</span>About</a></li>
-        <li><a href="#features"><span class="material-icons-outlined">toggle_on</span>Features</a></li>
-        <li><a href="#pricing"><span class="material-icons-outlined">receipt_long</span>Pricing</a></li>
-        <li><a href="#contact"><span class="material-icons-outlined">support_agent</span>Contact</a></li>
+        <li><a href="/home" class="active"><span class="material-icons-outlined">home</span>Home</a></li>
+        <li><a href="download"><span class="material-icons-outlined">download</span>Download App</a></li>
+        <li><a href="/home#what"><span class="material-icons-outlined">info</span>About</a></li>
+        <li><a href="/home#features"><span class="material-icons-outlined">toggle_on</span>Features</a></li>
+        <li><a href="/home#pricing"><span class="material-icons-outlined">receipt_long</span>Pricing</a></li>
+        <li><a href="/home#contact"><span class="material-icons-outlined">support_agent</span>Contact</a></li>
       </ul>
       <div class="theme-toggle-mobile-wrapper">
         <button id="theme-toggle-mobile" class="theme-toggle-mobile">
@@ -975,326 +975,106 @@
     </nav>
     <div class="nav-overlay" id="nav-overlay"></div>
   </header>
-  <!-- ───────── HERO ──────── -->
-  <section class="hero" id="home">
+
+  <!-- ───────── DOWNLOAD HERO ───────── -->
+  <section class="hero" id="download-hero">
     <div class="container wrap">
       <div data-aos="fade-up">
-        <span class="eyebrow"><span class="material-icons-outlined" aria-hidden="true">verified_user</span> Open‑Source. Transparent. Secure.</span>
-        <h2 class="display">Empowering Investors with <span style="color:var(--blue)">Transparency</span> and <span style="color:var(--red)">Control</span></h2>
-        <p class="lead">Pennieshares is an innovative, open‑source brokerage platform designed to give you full control over your investments. Experience a new level of transparency and security in the financial market.</p>
+        <span class="eyebrow"><span class="material-icons-outlined" aria-hidden="true">phone_iphone</span> Mobile App</span>
+        <h2 class="display">Invest on the Go</h2>
+        <p class="lead">Get the full power of Pennieshares in your pocket. Our mobile app is designed for a seamless and secure investing experience.</p>
         <div class="cta">
-          <a class="btn primary" href="register"><span class="material-icons-outlined">rocket_launch</span> Get Started</a>
-          <a class="btn ghost" href="#what"><span class="material-icons-outlined">play_circle</span> Learn More</a>
-        </div>
-        <div class="trust-badges" data-aos="fade-up" data-aos-delay="200">
-          <div class="badge"><span class="material-icons-outlined">code</span> Open‑Source</div>
-          <div class="badge"><span class="material-icons-outlined">visibility</span> Full Transparency</div>
-          <div class="badge"><span class="material-icons-outlined">shield_lock</span> Advanced Encryption</div>
+          <a href="#" class="btn primary"><span class="material-icons-outlined">android</span> Download for Android</a>
+          <a href="#" class="btn primary"><span class="material-icons-outlined">apple</span> Download for iOS</a>
         </div>
       </div>
-      <video src="assets/videos/hero.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-left"></video>
+      <div class="img-ph" data-aos="fade-left">
+        <img src="assets/images/dashboardscreenlight.jpg" alt="App Screenshot Light Mode" class="light-mode-img-hero">
+        <img src="assets/images/dashboardscreendark.jpg" alt="App Screenshot Dark Mode" class="dark-mode-img-hero" style="display: none;">
+      </div>
     </div>
   </section>
 
-  <!-- ───────── WHAT IS ───────── -->
-  <section id="what">
-    <div class="container split">
-      <div data-aos="fade-up">
-        <div class="sec-head">
-          <h3>What is Pennieshares?</h3>
-        </div>
-        <p>Pennieshares is an innovative, open‑source brokerage platform that provides a secure and transparent environment for buying and selling shares. Our platform is designed to be user‑friendly, making it easy for both new and experienced investors to get started. <strong>Sign up today</strong> and take control of your financial future.</p>
-        <div class="sp-16"></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <span class="pill"><span class="material-icons-outlined">lock_open_right</span> Open‑Source</span>
-          <span class="pill"><span class="material-icons-outlined">visibility</span> Transparent</span>
-          <span class="pill"><span class="material-icons-outlined">bolt</span> Fast</span>
-          <span class="pill"><span class="material-icons-outlined">devices</span> Cross‑Platform</span>
-        </div>
-      </div>
-      <video src="assets/videos/checkportfolio.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-right"></video>
-    </div>
-  </section>
-
-  <!-- ───────── OPEN-SOURCE & TRANSPARENCY ───────── -->
-  <section id="features" class="alt">
+  <!-- ───────── APP FEATURES ───────── -->
+  <section class="alt" id="features">
     <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Open‑Source &amp; Transparency</h3>
-        <p>Our open‑source approach ensures full transparency, fosters trust, and invites community‑driven improvements.</p>
-      </div>
-
-      <div class="grid-3">
-        <div class="card" data-aos="fade-up" data-aos-delay="100">
-          <div class="icon"><span class="material-icons-outlined">visibility</span></div>
-          <h4>Full Transparency</h4>
-          <p class="muted">Every aspect of our platform is open for review, ensuring complete transparency.</p>
-        </div>
-        <div class="card" data-aos="fade-up" data-aos-delay="200">
-          <div class="icon"><span class="material-icons-outlined">groups</span></div>
-          <h4>Community‑Driven Security</h4>
-          <p class="muted">Our community actively contributes to the security and improvement of the platform.</p>
-        </div>
-        <div class="card" data-aos="fade-up" data-aos-delay="300">
-          <div class="icon"><span class="material-icons-outlined">tune</span></div>
-          <h4>User Control</h4>
-          <p class="muted">You have full control over your investments with a clear understanding of how your assets are managed.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────── SECURITY & CONTROL ───────── -->
-  <section>
-    <div class="container split">
-      <video src="assets/videos/encryption.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-right"></video>
-      <div>
         <div class="sec-head" data-aos="fade-up">
-          <h3>Security &amp; Control</h3>
+            <h3>Powerful Features in Your Pocket</h3>
+            <p>Our mobile app brings the full power of our platform to your fingertips, with a focus on speed, security, and ease of use.</p>
         </div>
-        <p data-aos="fade-up" data-aos-delay="100">At Pennieshares, <strong>your security is our priority</strong>. You maintain full control over your shares and money, with robust data protection in place.</p>
-        <div class="grid-3" style="margin-top:12px">
-          <div class="card" data-aos="fade-up" data-aos-delay="200"><div class="icon"><span class="material-icons-outlined">gpp_maybe</span></div><h4>Full Control</h4><p class="muted">No third‑party interference. You’re always in charge.</p></div>
-          <div class="card" data-aos="fade-up" data-aos-delay="300"><div class="icon"><span class="material-icons-outlined">encrypted</span></div><h4>Advanced Encryption</h4><p class="muted">Modern cryptography protects your data and transactions.</p></div>
-          <div class="card" data-aos="fade-up" data-aos-delay="400"><div class="icon"><span class="material-icons-outlined">dns</span></div><h4>Secure Servers</h4><p class="muted">Hardened infrastructure ensures integrity and uptime.</p></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────── FEES & COMMISSIONS ───────── -->
-  <section id="pricing" class="alt">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Transparent &amp; Competitive Pricing</h3>
-        <p>Clear fees with flexible options to suit your investment style.</p>
-      </div>
-
-      <div class="pricing">
-        <div class="price-tile" data-aos="fade-up" data-aos-delay="100">
-          <div class="tag"><span class="material-icons-outlined">task_alt</span> No Hidden Fees</div>
-          <div class="sp-16"></div>
-          <p class="muted">Simple, straightforward pricing — what you see is what you pay.</p>
-        </div>
-        <div class="price-tile" data-aos="fade-up" data-aos-delay="200">
-          <div class="tag" style="background:var(--bg-tertiary);border-color:var(--border-color);color:var(--accent-color)">
-            <span class="material-icons-outlined">speed</span> Competitive Rates
-          </div>
-          <div class="sp-16"></div>
-          <p class="muted">Get excellent value across trades and services.</p>
-        </div>
-        <div class="price-tile" data-aos="fade-up" data-aos-delay="300">
-          <div class="tag" style="background:var(--bg-tertiary);border-color:var(--border-color);color:var(--text-secondary)">
-            <span class="material-icons-outlined">tune</span> Flexible Options
-          </div>
-          <div class="sp-16"></div>
-          <p class="muted">Choose a plan tailored to your volume and strategy.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────── RESOURCES & SUPPORT ───────── -->
-  <section id="resources">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Investment Advice &amp; Support</h3>
-        <p>We don’t offer personalized advice, but we provide the tools and knowledge to help you invest with confidence.</p>
-      </div>
-
-      <div class="res-grid">
-        <div class="res" data-aos="fade-up" data-aos-delay="100">
-          <h4><span class="material-icons-outlined" aria-hidden="true">menu_book</span> Educational Resources</h4>
-          <p class="muted">Access articles, tutorials, and guides to grow your investing skills.</p>
-        </div>
-        <div class="res" data-aos="fade-up" data-aos-delay="200">
-          <h4><span class="material-icons-outlined" aria-hidden="true">forum</span> Community Forums</h4>
-          <p class="muted">Engage with other investors — share insights, ask questions, learn faster.</p>
-        </div>
-        <div class="res" data-aos="fade-up" data-aos-delay="300">
-          <h4><span class="material-icons-outlined" aria-hidden="true">support_agent</span> Email &amp; Chat Support</h4>
-          <p class="muted">Need platform help? Our team is available via email and chat.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────── ACCOUNT MANAGEMENT ───────── -->
-  <section class="alt">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Convenient Account Management</h3>
-        <p>Manage your Pennieshares account anywhere — online or through our mobile app. Monitor activity, automate transactions, and stay in control.</p>
-      </div>
-
       <div class="grid-3">
         <div class="card" data-aos="fade-up" data-aos-delay="100">
-          <div class="icon"><span class="material-icons-outlined">laptop_mac</span></div>
-          <h4>Online Access</h4>
-          <p class="muted">Access your account from any device with an internet connection.</p>
+          <div class="icon"><span class="material-icons-outlined">phone_iphone</span></div>
+          <h4>Seamless Mobile Experience</h4>
+          <p class="muted">Enjoy a fully-featured trading experience optimized for your mobile device.</p>
         </div>
         <div class="card" data-aos="fade-up" data-aos-delay="200">
-          <div class="icon"><span class="material-icons-outlined">phone_iphone</span></div>
-          <h4>Mobile App</h4>
-          <p class="muted">On‑the‑go portfolio tracking and order management.</p>
+          <div class="icon"><span class="material-icons-outlined">notifications</span></div>
+          <h4>Real-Time Alerts</h4>
+          <p class="muted">Stay on top of market movements with instant notifications and alerts.</p>
         </div>
         <div class="card" data-aos="fade-up" data-aos-delay="300">
-          <div class="icon"><span class="material-icons-outlined">autorenew</span></div>
-          <h4>Automated Transactions</h4>
-          <p class="muted">Set up recurring investments and withdrawals with ease.</p>
+          <div class="icon"><span class="material-icons-outlined">security</span></div>
+          <h4>Secure and Encrypted</h4>
+          <p class="muted">Your data and transactions are protected with the latest security standards.</p>
         </div>
       </div>
-
-      <div class="sp-24"></div>
-      <video src="assets/videos/webmobile.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
     </div>
   </section>
 
-  <!-- ───────── CONTENT PREVIEWS (for dropdown items) ───────── -->
-  <section id="stocks">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Stocks &amp; ETFs</h3>
-        <p>Discover, analyze, and invest in a wide range of assets with transparent execution.</p>
-      </div>
-      <video src="assets/videos/marketchart.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
-    </div>
-  </section>
+  <style>
+    /* Phone Mockup */
+    .phone-mockup {
+      position: relative;
+      width: 300px;
+      height: 600px;
+      margin: 0 auto;
+      background-color: #111;
+      border-radius: 40px;
+      box-shadow: 0 0 0 2px #333, 0 0 0 8px #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-  <section id="api" class="alt">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Business &amp; API</h3>
-        <p>Build on Pennieshares — integrate market data and trading with secure, well‑documented APIs.</p>
-      </div>
-      <video src="assets/videos/developersapi.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
-    </div>
-  </section>
+    .phone-mockup::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 30px;
+      background-color: #000;
+      border-radius: 0 0 20px 20px;
+    }
 
-  <section id="blog">
+    .phone-screen {
+      width: 280px;
+      height: 580px;
+      background-color: #fff;
+      border-radius: 30px;
+      overflow: hidden;
+    }
+
+    .phone-screen img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+
+  <!-- ───────── DEVICE MOCKUP ───────── -->
+  <section class="device-mockup">
     <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Blog</h3>
-        <p>Insights, platform updates, and long‑form explainers for smarter investing.</p>
-      </div>
-      <!-- Swiper -->
-      <div class="swiper-container blog-swiper" data-aos="fade-up">
-        <div class="swiper-wrapper">
-          <!-- Blog Post 1 -->
-          <div class="swiper-slide">
-            <div class="blog-card">
-              <video src="assets/videos/checkportfolio.mp4" muted playsinline class="blog-card-video"></video>
-              <h4>The Future of Investing</h4>
-              <p class="muted">Explore how technology is reshaping the investment landscape.</p>
-              <a href="#" class="read-more">Read More &rarr;</a>
-            </div>
-          </div>
-          <!-- Blog Post 2 -->
-          <div class="swiper-slide">
-            <div class="blog-card">
-              <video src="assets/videos/developersapi.mp4" muted playsinline class="blog-card-video"></video>
-              <h4>Understanding Market Trends</h4>
-              <p class="muted">A deep dive into identifying and leveraging market trends.</p>
-              <a href="#" class="read-more">Read More &rarr;</a>
-            </div>
-          </div>
-          <!-- Blog Post 3 -->
-          <div class="swiper-slide">
-            <div class="blog-card">
-              <video src="assets/videos/encryption.mp4" muted playsinline class="blog-card-video"></video>
-              <h4>Security in Open-Source Platforms</h4>
-              <p class="muted">How open-source models enhance security and transparency.</p>
-              <a href="#" class="read-more">Read More &rarr;</a>
-            </div>
-          </div>
-          <!-- Blog Post 4 -->
-          <div class="swiper-slide">
-            <div class="blog-card">
-              <video src="assets/videos/hero.mp4" muted playsinline class="blog-card-video"></video>
-              <h4>Your First Investment: A Guide</h4>
-              <p class="muted">Everything you need to know to make your first investment.</p>
-              <a href="#" class="read-more">Read More &rarr;</a>
-            </div>
-          </div>
+        <div class="sec-head" data-aos="fade-up">
+            <h3>See it in Action</h3>
+            <p>A glimpse of the clean and intuitive interface of the Pennieshares mobile app.</p>
         </div>
-        <!-- Add Pagination -->
-        <div class="swiper-pagination"></div>
-        <!-- Add Navigation -->
-        <div class="swiper-button-next"></div>
-        <div class="swiper-button-prev"></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="tips" class="alt">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Investment Tips</h3>
-        <p>Actionable, evergreen tips to help you avoid common pitfalls and build better habits.</p>
-      </div >
-      <img src="assets/videos/tipschecklist.jpeg" alt="Tips / checklist illustration placeholder" class="img-ph" data-aos="fade-up">
-    </div>
-  </section>
-
-  <section id="news">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>News</h3>
-        <p>Stay informed with curated market news and platform announcements.</p>
-      </div>
-      <video src="assets/videos/newsfeed.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
-    </div>
-  </section>
-
-  <section id="stock-month" class="alt">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Stock of the Month</h3>
-        <p>A monthly deep‑dive into a notable company or ETF — thesis, risks, and key metrics.</p>
-      </div>
-      <video src="assets/videos/stockofmonth.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
-    </div>
-  </section>
-
-  <!-- ───────── CONTACT ───────── -->
-  <section id="contact">
-    <div class="container">
-      <div class="sec-head" data-aos="fade-up">
-        <h3>Get in Touch</h3>
-        <p>Questions about the platform? Send us a message — we’d love to help.</p>
-      </div>
-      <div class="contact-grid">
-        <form onsubmit="event.preventDefault(); alert('Thanks! We will reach out shortly.');" data-aos="fade-right">
-          <div class="field">
-            <label for="name">Name</label>
-            <input id="name" name="name" placeholder="Your Name" required>
-          </div>
-          <div class="field">
-            <label for="email">Email</label>
-            <input id="email" name="email" placeholder="Your Email" type="email" required>
-          </div>
-          <div class="field">
-            <label for="message">Message</label>
-            <textarea id="message" name="message" placeholder="Your Message" required></textarea>
-          </div>
-          <button class="btn primary" type="submit"><span class="material-icons-outlined">send</span> Send Message</button>
-        </form>
-
-        <div data-aos="fade-left">
-          <div class="res">
-            <h4><span class="material-icons-outlined">phone_in_talk</span> Phone</h4>
-            <p class="muted">+234 908 5178 305</p>
-          </div>
-          <div class="sp-16"></div>
-          <div class="res">
-            <h4><span class="material-icons-outlined">mail</span> Email</h4>
-            <p class="muted">penniepoint @gmail.com</p>
-          </div>
-          <div class="sp-16"></div>
-          <div class="res">
-            <h4><span class="material-icons-outlined">public</span> Address</h4>
-            <p class="muted">Global Headquarters</p>
-          </div>
+      <div class="phone-mockup" data-aos="fade-up" data-aos-delay="200">
+        <div class="phone-screen">
+          <img src="assets/images/lightdashboard.png" alt="App Screenshot Light Mode" class="light-mode-img">
+          <img src="assets/images/darkdashboard.png" alt="App Screenshot Dark Mode" class="dark-mode-img" style="display: none;">
         </div>
       </div>
     </div>
@@ -1350,12 +1130,33 @@
         html.setAttribute('data-theme', theme);
         const sunIcon = themeToggle.querySelector('.sun-icon');
         const moonIcon = themeToggle.querySelector('.moon-icon');
+        const lightModeImg = document.querySelector('.light-mode-img');
+        const darkModeImg = document.querySelector('.dark-mode-img');
+        const lightModeImgHero = document.querySelector('.light-mode-img-hero');
+        const darkModeImgHero = document.querySelector('.dark-mode-img-hero');
+
         if (theme === 'dark') {
             sunIcon.style.display = 'none';
             moonIcon.style.display = 'block';
+            if(lightModeImg && darkModeImg){
+                lightModeImg.style.display = 'none';
+                darkModeImg.style.display = 'block';
+            }
+            if(lightModeImgHero && darkModeImgHero){
+                lightModeImgHero.style.display = 'none';
+                darkModeImgHero.style.display = 'block';
+            }
         } else {
             sunIcon.style.display = 'block';
             moonIcon.style.display = 'none';
+            if(lightModeImg && darkModeImg){
+                lightModeImg.style.display = 'block';
+                darkModeImg.style.display = 'none';
+            }
+            if(lightModeImgHero && darkModeImgHero){
+                lightModeImgHero.style.display = 'block';
+                darkModeImgHero.style.display = 'none';
+            }
         }
     };
     
@@ -1489,5 +1290,6 @@
       videoObserver.observe(video);
     });
   </script>
+
 </body>
 </html>
