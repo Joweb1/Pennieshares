@@ -10,6 +10,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900"
     />
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <title>Pennieshares</title>
     <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
 
@@ -400,3 +401,6 @@
       <!-- Main Content Area - This is where the page-specific content will be inserted -->
       <main class="main-content">
         <div class="content-wrapper">
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>console.log("AOS script loaded.");</script>

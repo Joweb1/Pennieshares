@@ -16,7 +16,7 @@ if ($request_uri == '' || $request_uri == 'index.php') {
 }
 
 // Define available pages
-    $pages = ['home', 'login', 'register', 'profile', 'profile_view', 'profile_edit', 'find_broker', 'forgot_password', 'verify_otp', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions', 'wallet', 'shares', 'loading', 'partner', 'settings', 'api/generate_transaction_history', 'kyc', 'admin_kyc', 'broker_verify', 'verify_registration_otp', 'save-subscription', 'terms'];
+    $pages = ['home', 'login', 'register', 'profile', 'profile_view', 'profile_edit', 'find_broker', 'forgot_password', 'verify_otp', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions', 'wallet', 'shares', 'loading', 'partner', 'settings', 'api/generate_transaction_history', 'kyc', 'admin_kyc', 'broker_verify', 'verify_registration_otp', 'save-subscription', 'terms', 'download'];
 
 // Retrieve query parameters safely
 $partnercode = $_GET['partnercode'] ?? NULL; // Example: ?token=abc123

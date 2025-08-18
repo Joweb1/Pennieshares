@@ -6,7 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 function sendEmail($to, $subject, $body) {
     $adminEmail = 'penniepoint@gmail.com';
-    $password = 'bkdw qsmw xtmh bniw';
+    $password = 'zlfu xlkf alxg xicp';
 
     $mail = new PHPMailer(true);
 
@@ -68,5 +68,28 @@ function send_broker_credit_email($to, $username, $amount, $broker_name) {
         'broker_name' => $broker_name
     ];
     return sendNotificationEmail('broker_credit_user', $data, $to, $subject);
+}
+
+function send_admin_wallet_transaction_email($to, $admin_name, $user_name, $transaction_type, $amount) {
+    $subject = "Admin Wallet Transaction Notification";
+    $data = [
+        'admin_name' => $admin_name,
+        'user_name' => $user_name,
+        'transaction_type' => $transaction_type,
+        'amount' => $amount,
+        'date' => date('Y-m-d H:i:s')
+    ];
+    return sendNotificationEmail('admin_wallet_transaction_admin', $data, $to, $subject);
+}
+
+function send_user_transfer_email($to, $sender_name, $receiver_name, $amount) {
+    $subject = "User Transfer Notification";
+    $data = [
+        'sender_name' => $sender_name,
+        'receiver_name' => $receiver_name,
+        'amount' => $amount,
+        'date' => date('Y-m-d H:i:s')
+    ];
+    return sendNotificationEmail('user_transfer_admin', $data, $to, $subject);
 }
 ?>

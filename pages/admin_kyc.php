@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/kyc_functions.php';
+require_once __DIR__ . '/../src/email_functions.php';
 
 if (!$user['is_admin']) {
     header('Location: /dashboard');
@@ -16,8 +17,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['approve'])) {
         if ($kycId && $userId) {
             if (updateKycStatus($pdo, $kycId, 'verified')) {
-                // Optionally update user status in `users` table if not already handled by updateKycStatus
-                // $pdo->prepare("UPDATE users SET status = 2 WHERE id = ?")->execute([$userId]);
+                // Send email to user
+                $stmt = $pdo->prepare("SELECT username, email FROM users WHERE id = ?");
+                $stmt->execute([$userId]);
+                $user_info = $stmt->fetch();
+
+                if ($user_info) {
+                    $user_email = $user_info['email'];
+                    $username = $user_info['username'];
+
+                    // Send email to user
+                    $user_subject = "Congratulations! Your KYC has been approved.";
+                    $user_data = [
+                        'username' => $username,
+                        'login_url' => 'https://' . $_SERVER['HTTP_HOST'] . '/login'
+                    ];
+                    sendNotificationEmail('kyc_approved_user', $user_data, $user_email, $user_subject);
+
+                    // Send email to admin
+                    $admin_email = 'penniepoint@gmail.com'; // Or get from a config file
+                    $admin_subject = "KYC Approval Notification";
+                    $admin_data = [
+                        'username' => $username,
+                        'user_email' => $user_email,
+                        'approval_date' => date('Y-m-d H:i:s')
+                    ];
+                    sendNotificationEmail('kyc_approved_admin', $admin_data, $admin_email, $admin_subject);
+                }
                 $message = "KYC submission #{$kycId} approved successfully!";
             } else {
                 $message = "Error approving KYC submission #{$kycId}.";
@@ -25,12 +51,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $message = "Error: Invalid KYC ID or User ID for approval.";
         }
-    } elseif (isset($_POST['reject'])) {
+    } 
+    
+    if (isset($_POST['reject'])) {
         if ($kycId && $userId) {
-            if (updateKycStatus($pdo, $kycId, 'rejected')) {
-                $message = "KYC submission #{$kycId} rejected successfully!";
+            // First, get the current status
+            $stmt = $pdo->prepare("SELECT status FROM kyc_verifications WHERE id = ?");
+            $stmt->execute([$kycId]);
+            $current_status = $stmt->fetchColumn();
+
+            if ($current_status === 'rejected') {
+                // If already rejected, delete the record
+                if (deleteKycVerification($pdo, $kycId)) {
+                    $message = "KYC submission #{$kycId} has been deleted successfully as it was already rejected.";
+                } else {
+                    $message = "Error deleting KYC submission #{$kycId}.";
+                }
             } else {
-                $message = "Error rejecting KYC submission #{$kycId}.";
+                // If not rejected, update the status to 'rejected'
+                if (updateKycStatus($pdo, $kycId, 'rejected')) {
+                    // Send email to user
+                    $stmt = $pdo->prepare("SELECT username, email FROM users WHERE id = ?");
+                    $stmt->execute([$userId]);
+                    $user_info = $stmt->fetch();
+
+                    if ($user_info) {
+                        $user_email = $user_info['email'];
+                        $username = $user_info['username'];
+
+                        // Send email to user
+                        $user_subject = "Update on your KYC Verification";
+                        $user_data = [
+                            'username' => $username,
+                            'kyc_url' => 'https://' . $_SERVER['HTTP_HOST'] . '/kyc'
+                        ];
+                        sendNotificationEmail('kyc_rejected_user', $user_data, $user_email, $user_subject);
+                    }
+                    $message = "KYC submission #{$kycId} rejected successfully!";
+                } else {
+                    $message = "Error rejecting KYC submission #{$kycId}.";
+                }
             }
         } else {
             $message = "Error: Invalid KYC ID or User ID for rejection.";

@@ -813,11 +813,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const convertAndDisplay = () => {
         const walletBalanceSV = parseFloat(walletBalanceSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
-        const assetsWorthSV = parseFloat(assetsWorthSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 1; // avoid /0
+        const assetsWorthSV =  parseFloat(assetsWorthSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 1; // avoid /0
         const totalReturnSV = parseFloat(totalReturnEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
 
         const walletBalanceNaira = walletBalanceSV * SV_TO_NAIRA_RATE;
-        const assetsWorthNaira = (totalReturnSV / assetsWorthSV) * 100;
+        if(assetsWorthSV == 0.00){
+            var assetsWorthNaira = 0.00;
+        }else{
+            var assetsWorthNaira = (totalReturnSV / assetsWorthSV) * 100;
+        }
 
         walletNairaEl.textContent = `₦ ${walletBalanceNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         assetsWorthNairaEl.textContent = `+${assetsWorthNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;

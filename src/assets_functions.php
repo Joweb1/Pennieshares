@@ -226,7 +226,7 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
             if ($depth >= MAX_GENERATIONS_PAYOUT_DEPTH) break;
 
             // Check if ancestor is active and not completed/expired
-            if ($ancestor['is_completed'] == 0 && $ancestor['is_currently_expired'] == 0) {
+            if ($ancestor['is_completed'] == 0 || $ancestor['is_currently_expired'] == false) {
                 $payoutAmount = PAYOUT_PER_GENERATION_EVENT_FROM_POT;
 
                 // Check payout cap
@@ -243,9 +243,9 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
                     $pdo->prepare("UPDATE assets SET total_generational_received = total_generational_received + ? WHERE id = ?")->execute([$payoutAmount, $ancestor['id']]);
 
                     // Schedule fractional payouts
-                    $fractionalAmount = $payoutAmount / 10;
-                    for ($i = 0; $i < 10; $i++) {
-                        $creditAt = date('Y-m-d H:i:s', time() + mt_rand(1, 48 * 3600));
+                    $fractionalAmount = $payoutAmount / 5;
+                    for ($i = 0; $i < 5; $i++) {
+                        $creditAt = date('Y-m-d H:i:s', time() + mt_rand(1, 72 * 3600));
                         $pdo->prepare("INSERT INTO pending_profits (user_id, receiving_asset_id, fractional_amount, payout_type, credit_at) VALUES (?, ?, ?, ?, ?)")
                             ->execute([$ancestor['user_id'], $ancestor['id'], $fractionalAmount, 'generational', $creditAt]);
                     }
@@ -269,22 +269,24 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
         }
 
         // Shared Payouts: Distribute SHARED_POT_ALLOCATION among all active assets
-        $activeAssetsStmt = $pdo->prepare("SELECT a.id, a.user_id, at.name as asset_type_name FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.is_completed = 0 AND a.is_manually_expired = 0");
-        $activeAssetsStmt->execute();
+        $activeAssetsStmt = $pdo->prepare("SELECT a.id, a.user_id, a.is_completed, a.is_manually_expired, at.name as asset_type_name FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.is_completed = 0 AND a.is_manually_expired = 0 AND (a.expires_at IS NULL OR a.expires_at > :now)");
+        $activeAssetsStmt->execute([':now' => $now]);
         $activeAssets = $activeAssetsStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $numActiveAssets = count($activeAssets);
         if ($numActiveAssets > 0) {
             $fractionalSharedPayout = SHARED_POT_ALLOCATION / $numActiveAssets;
             foreach ($activeAssets as $activeAsset) {
+            if($activeAsset['is_completed'] == 0 || $activeAsset['is_manually_expired'] == 0){
                // Credit asset's total_shared_received
                 $pdo->prepare("UPDATE assets SET total_shared_received = total_shared_received + ? WHERE id = ?")->execute([$fractionalSharedPayout, $activeAsset['id']]);
                 // Schedule fractional payouts
-                $fractionalAmount = $fractionalSharedPayout / 10;
-                for ($i = 0; $i < 10; $i++) {
-                    $creditAt = date('Y-m-d H:i:s', time() + mt_rand(1, 48 * 3600));
+                $fractionalAmount = $fractionalSharedPayout / 4;
+                for ($i = 0; $i < 4; $i++) {
+                    $creditAt = date('Y-m-d H:i:s', time() + mt_rand(1, 72 * 3600));
                     $pdo->prepare("INSERT INTO pending_profits (user_id, receiving_asset_id, fractional_amount, payout_type, credit_at) VALUES (?, ?, ?, ?, ?)")
                         ->execute([$activeAsset['user_id'], $activeAsset['id'], $fractionalAmount, 'shared', $creditAt]);
+                        }
                 }
 
                 $currentPurchaseResult['shared_payouts_log'][] = "Asset #{$activeAsset['id']} received ₦" . number_format($fractionalSharedPayout, 2) . " (Shared).";
@@ -306,7 +308,7 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
             'asset_name' => $assetType['name'],
             'price' => number_format($totalCost, 2)
         ];
-        sendNotificationEmail('asset_purchase_admin', $admin_data, 'nahjonah00@gmail.com', 'New Asset Purchase');
+        sendNotificationEmail('asset_purchase_admin', $admin_data, 'penniepoint@gmail.com', 'New Asset Purchase');
 
         // Send comprehensive email to user
         $user_email_data = [

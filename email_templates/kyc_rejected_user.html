@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Verification Update</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        }
+        .email-header {
+            background: linear-gradient(135deg, #FF3B30, #d92c2c);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .email-header .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .email-header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 800;
+        }
+        .email-body {
+            padding: 40px;
+            color: #333;
+            line-height: 1.7;
+        }
+        .email-body p {
+            margin: 0 0 24px;
+        }
+        .email-footer {
+            background-color: #f8f9fa;
+            padding: 20px 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+            border-top: 1px solid #e9eef2;
+        }
+        .button {
+            display: inline-block;
+            background-color: #0A4DFF;
+            color: #ffffff;
+            padding: 14px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background-color 0.2s ease;
+        }
+        .button:hover {
+            background-color: #0739bd;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <div class="icon">⚠️</div>
+            <h1>KYC Verification Update</h1>
+        </div>
+        <div class="email-body">
+            <p>Hello {{username}},</p>
+            <p>We are writing to inform you that your recent KYC submission could not be approved at this time. This may be due to unclear documents or information that did not match our records.</p>
+            <p>Please review your submission for any inaccuracies and feel free to resubmit your documents. If you have any questions, please don't hesitate to contact our support team.</p>
+            <a href="{{kyc_url}}" class="button">Resubmit KYC</a>
+        </div>
+        <div class="email-footer">
+            <p>&copy; 2025 Pennieshares. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $admin_data = [
                     'username' => $user['username']
                 ];
-                sendNotificationEmail('payment_proof_admin', $admin_data, 'nahjonah00@gmail.com', 'New Payment Proof Uploaded');
+                sendNotificationEmail('account_verified_user', $user, $user['email'], 'Account Verified Successfully');
             } catch (PDOException $e) {
                 $message = "Error verifying: " . $e->getMessage();
             }

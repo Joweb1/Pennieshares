@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/email_functions.php';
 
 function getKycStatus($pdo, $userId) {
     $stmt = $pdo->prepare("SELECT * FROM kyc_verifications WHERE user_id = ?");
@@ -91,7 +92,26 @@ function submitKycStep2($pdo, $userId, $files) {
 
         $stmt = $pdo->prepare($sql);
         $success = $stmt->execute($params);
-        if (!$success) {
+
+        if ($success) {
+            // Send email to admin
+            $stmt = $pdo->prepare("SELECT username, email FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $adminEmail = 'penniepoint@gmail.com'; // Replace with actual admin email
+            $subject = 'New KYC Submission';
+            $verification_link = 'https://yourdomain.com/admin_kyc'; // Replace with actual link
+
+            $data = [
+                'username' => $user['username'],
+                'user_email' => $user['email'],
+                'submission_date' => date('Y-m-d H:i:s'),
+                'verification_link' => $verification_link
+            ];
+
+            sendNotificationEmail('kyc_submission_admin', $data, $adminEmail, $subject);
+        } else {
             error_log("Database update failed for KYC step 2: " . implode(", ", $stmt->errorInfo()));
         }
         return $success;
@@ -109,5 +129,10 @@ function getKycSubmissions($pdo) {
 function updateKycStatus($pdo, $kycId, $status) {
     $stmt = $pdo->prepare("UPDATE kyc_verifications SET status = ? WHERE id = ?");
     return $stmt->execute([$status, $kycId]);
+}
+
+function deleteKycVerification($pdo, $kycId) {
+    $stmt = $pdo->prepare("DELETE FROM kyc_verifications WHERE id = ?");
+    return $stmt->execute([$kycId]);
 }
 ?>

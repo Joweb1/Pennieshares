@@ -1283,17 +1283,12 @@
         <div data-aos="fade-left">
           <div class="res">
             <h4><span class="material-icons-outlined">phone_in_talk</span> Phone</h4>
-            <p class="muted">+234 908 5178 305</p>
+            <p class="muted">+234 907 5174 301</p>
           </div>
           <div class="sp-16"></div>
           <div class="res">
             <h4><span class="material-icons-outlined">mail</span> Email</h4>
-            <p class="muted">penniepoint @gmail.com</p>
-          </div>
-          <div class="sp-16"></div>
-          <div class="res">
-            <h4><span class="material-icons-outlined">public</span> Address</h4>
-            <p class="muted">Global Headquarters</p>
+            <p class="muted">penniepoint@gmail.com</p>
           </div>
         </div>
       </div>
@@ -1335,9 +1330,10 @@
     <div class="container" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <span class="subtle">© 2024 Pennieshares. All rights reserved. Powered by Penniepoint.</span>
       <div style="display:flex;gap:10px">
-        <a class="btn" href="#" aria-label="Twitter"><span class="material-icons-outlined">alternate_email</span></a>
-        <a class="btn" href="#" aria-label="Facebook"><span class="material-icons-outlined">thumb_up</span></a>
-        <a class="btn" href="#" aria-label="LinkedIn"><span class="material-icons-outlined">work</span></a>
+        <a class="btn" href="https://www.youtube.com/your-channel" aria-label="YouTube" target="_blank"><span class="material-icons-outlined">play_circle</span></a>
+        <a class="btn" href="https://www.instagram.com/your-profile" aria-label="Instagram" target="_blank"><span class="material-icons-outlined">camera_alt</span></a>
+        <a class="btn" href="https://www.facebook.com/your-page" aria-label="Facebook" target="_blank"><span class="material-icons-outlined">facebook</span></a>
+        <a class="btn" href="https://twitter.com/your-profile" aria-label="X (Twitter)" target="_blank"><span class="material-icons-outlined">share</span></a>
       </div>
     </div>
   </footer>

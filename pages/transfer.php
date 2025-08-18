@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 if ($transferResult['success']) {
                     $_SESSION['transfer_status'] = 'success';
                     $_SESSION['transfer_amount'] = $amount;
+                    send_user_transfer_email('penniepoint@gmail.com', $currentUser['username'], $receiverUser['username'], $amount);
                 } else {
                     $_SESSION['transfer_message'] = $transferResult['message'];
                 }

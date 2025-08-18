@@ -209,6 +209,9 @@ function check_auth() {
         header("Location: login");
         exit;
     }
+    if (isset($_SESSION['user']) && $_SESSION['user']['status'] === 1 ){
+        header("Location: payment");
+    }
 
     // Check for session expiration (1 hour inactivity)
     $session_lifetime = 3600; // 1 hour in seconds
@@ -310,7 +313,7 @@ function creditUserWallet($userId, $amount, $description = 'Broker Credited You'
                 // Send push notification for credit
                 $payload = [
                     'title' => 'Wallet Credited!',
-                    'body' => 'Your wallet has been credited with SV' . number_format($amount, 2) . '. Reason: ' . $description,
+                    'body' => 'Your wallet has been credited with SV' . number_format($amount, 4) . '. Reason: ' . $description,
                     'icon' => 'assets/images/logo.png',
                 ];
                 sendPushNotification($userId, $payload);
@@ -874,31 +877,52 @@ function processPendingProfits($pdo) {
         $pendingProfits = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($pendingProfits as $profit) {
-            // Get asset details
-            $assetStmt = $pdo->prepare("SELECT at.name, at.image_link FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.id = ?");
-            $assetStmt->execute([$profit['receiving_asset_id']]);
-            $assetDetails = $assetStmt->fetch(PDO::FETCH_ASSOC);
+            // Check if the receiving asset is still active
+            $assetStatusStmt = $pdo->prepare("
+                SELECT is_completed, is_manually_expired, expires_at 
+                FROM assets 
+                WHERE id = ?
+            ");
+            $assetStatusStmt->execute([$profit['receiving_asset_id']]);
+            $assetStatus = $assetStatusStmt->fetch(PDO::FETCH_ASSOC);
 
-            // Credit user wallet
-            $credit_success = creditUserWallet($profit['user_id'], $profit['fractional_amount'], 'Asset Profit', $assetDetails);
+            $is_expired = ($assetStatus['expires_at'] && $assetStatus['expires_at'] < $now) || $assetStatus['is_manually_expired'] == 1;
 
-            if ($credit_success) {
-                // Also update total_return when profit is actually credited
-                $updateTotalReturnStmt = $pdo->prepare("UPDATE users SET total_return = total_return + ? WHERE id = ?");
-                $updateTotalReturnStmt->execute([$profit['fractional_amount'], $profit['user_id']]);
+            if ($assetStatus && $assetStatus['is_completed'] == 0 && !$is_expired) {
+                // Asset is still active, proceed with crediting
 
-                // Mark as credited and delete
+                // Get asset details
+                $assetStmt = $pdo->prepare("SELECT at.name, at.image_link FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.id = ?");
+                $assetStmt->execute([$profit['receiving_asset_id']]);
+                $assetDetails = $assetStmt->fetch(PDO::FETCH_ASSOC);
+
+                // Credit user wallet
+                $credit_success = creditUserWallet($profit['user_id'], $profit['fractional_amount'], 'Asset Profit', $assetDetails);
+
+                if ($credit_success) {
+                    // Also update total_return when profit is actually credited
+                    $updateTotalReturnStmt = $pdo->prepare("UPDATE users SET total_return = total_return + ? WHERE id = ?");
+                    $updateTotalReturnStmt->execute([$profit['fractional_amount'], $profit['user_id']]);
+
+                    // Mark as credited and delete
+                    $deleteStmt = $pdo->prepare("DELETE FROM pending_profits WHERE id = ?");
+                    $deleteStmt->execute([$profit['id']]);
+
+                    // Send push notification
+                    $user = getUserByIdOrName($pdo, $profit['user_id']);
+                    $payload = [
+                        'title' => 'Profit Credited!',
+                        'body' => 'You have received a profit of ' . number_format($profit['fractional_amount'], 4) . ' from your asset: ' . $assetDetails['name'],
+                        'icon' => 'assets/images/logo.png',
+                    ];
+                    sendPushNotification($profit['user_id'], $payload);
+                    
+                }
+            } else {
+                // Asset is completed or expired, so we just delete the pending profit
                 $deleteStmt = $pdo->prepare("DELETE FROM pending_profits WHERE id = ?");
                 $deleteStmt->execute([$profit['id']]);
-
-                // Send push notification
-                $user = getUserByIdOrName($pdo, $profit['user_id']);
-                $payload = [
-                    'title' => 'Profit Credited!',
-                    'body' => 'You have received a profit of ' . number_format($profit['fractional_amount'], 2) . ' from your asset: ' . $assetDetails['name'],
-                    'icon' => 'assets/images/logo.png',
-                ];
-                sendPushNotification($profit['user_id'], $payload);
+                error_log("Pending profit for asset #{$profit['receiving_asset_id']} was not credited because the asset is completed or expired.");
             }
         }
     } catch (Exception $e) {

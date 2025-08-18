@@ -1,2 +1,4 @@
 vendor/
 database/mydatabase.sqlite
+uploads/
+assets/videos/

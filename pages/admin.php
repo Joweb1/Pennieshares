@@ -130,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $transferResult = transferWalletBalance($pdo, $sender['id'], $receiver['id'], $amount);
         if ($transferResult['success']) {
             $actionMessage = "Successfully transferred ₦{$amount} from user {$sender_username} to user {$receiver_username}.";
+            send_admin_wallet_transaction_email('penniepoint@gmail.com', $_SESSION['user']['username'], $receiver_username, 'Admin Transfer', $amount);
         } else {
             $actionMessage = "Error: " . $transferResult['message'];
         }
