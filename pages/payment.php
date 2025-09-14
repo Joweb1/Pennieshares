@@ -565,6 +565,72 @@ if (isset($_GET['upload_success'])) {
             60% {transform: translateY(-10px);}
         }
 
+        .payment-method-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .payment-method-option {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background-color: var(--card-bg);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-method-option:hover {
+            border-color: var(--primary-color);
+        }
+
+        .payment-method-option input[type="radio"] {
+            display: none;
+        }
+
+        .payment-method-option input[type="radio"]:checked + .payment-method-option-content {
+            border: 2px solid var(--primary-color);
+            box-shadow: 0 0 10px rgba(12, 127, 242, 0.2);
+        }
+
+        .payment-method-option-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            border: 2px solid transparent;
+            border-radius: 0.75rem;
+            padding: 1rem;
+        }
+
+        .payment-method-option {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .selected-tag {
+            position: absolute;
+            top: -1px;
+            right: -1px;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-bottom-left-radius: 0.75rem;
+            opacity: 0;
+            transform: translateY(-100%);
+            transition: all 0.3s ease;
+        }
+
+        .payment-method-option.selected .selected-tag {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 1rem;
@@ -608,7 +674,7 @@ if (isset($_GET['upload_success'])) {
             
             <div class="progress-container">
                 <div class="step-info">
-                    <span class="step-number" id="step-text">Step 1 of 3</span>
+                    <span class="step-number" id="step-text">Step 1 of 4</span>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progress-fill"></div>
@@ -616,8 +682,40 @@ if (isset($_GET['upload_success'])) {
             </div>
             
             <form method="POST" action="payment" enctype="multipart/form-data" id="payment-form">
-                <!-- Step 1: Payment Details -->
+                <!-- Step 1: Choose Payment Method -->
                 <div class="step" id="step1">
+                    <h3 class="section-title">Select Payment Method</h3>
+                    <div class="payment-method-selection">
+                        <label class="payment-method-option selected">
+                            <input type="radio" name="payment_method" value="bank_transfer" checked>
+                            <div class="payment-method-option-content">
+                                <div class="selected-tag"><i class="fas fa-check"></i> Selected</div>
+                                <div class="payment-icon"><i class="fas fa-building"></i></div>
+                                <div class="payment-info">
+                                    <p class="account-name">Bank Transfer</p>
+                                    <span class="account-type">Upload proof of payment</span>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="payment_method" value="paystack">
+                            <div class="payment-method-option-content">
+                                <div class="selected-tag"><i class="fas fa-check"></i> Selected</div>
+                                <div class="payment-icon"><i class="fas fa-credit-card"></i></div>
+                                <div class="payment-info">
+                                    <p class="account-name">Pay with Paystack</p>
+                                    <span class="account-type">Pay with your card</span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="button-group">
+                        <button type="button" class="button button-primary" id="next-step1">Continue <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Bank Transfer -->
+                <div class="step" id="step-bank-transfer">
                     <h3 class="section-title">Amount</h3>
                     <div class="amount-display">₦1,000.00</div>
                     <h3 class="section-title">Payment Method</h3>
@@ -633,12 +731,13 @@ if (isset($_GET['upload_success'])) {
                         </div>
                     </div>
                     <div class="button-group">
-                        <button type="button" class="button button-primary" id="next-step1">Continue <i class="fas fa-arrow-right"></i></button>
+                        <button type="button" class="button button-secondary" id="prev-step-bank-transfer"><i class="fas fa-arrow-left"></i> Back</button>
+                        <button type="button" class="button button-primary" id="next-step-bank-transfer">Continue <i class="fas fa-arrow-right"></i></button>
                     </div>
                 </div>
-                
-                <!-- Step 2: Payment Proof -->
-                <div class="step" id="step2">
+
+                <!-- Step 3: Payment Proof -->
+                <div class="step" id="step-proof">
                     <h3 class="section-title">Upload Payment Proof</h3>
                     <div class="upload-container">
                         <div class="upload-area" id="upload-area">
@@ -655,8 +754,21 @@ if (isset($_GET['upload_success'])) {
                         </div>
                     </div>
                     <div class="button-group">
-                        <button type="button" class="button button-secondary" id="prev-step2"><i class="fas fa-arrow-left"></i> Back</button>
+                        <button type="button" class="button button-secondary" id="prev-step-proof"><i class="fas fa-arrow-left"></i> Back</button>
                         <button type="submit" class="button button-primary" id="submit-proof-btn">Submit Proof <i class="fas fa-check"></i></button>
+                    </div>
+                </div>
+
+                <!-- Step Paystack -->
+                <div class="step" id="step-paystack">
+                    <h3 class="section-title">Pay with Paystack</h3>
+                    <div class="amount-display">₦1,000.00</div>
+                    <div class="confirmation-content">
+                        <p>You will be redirected to Paystack to complete your payment.</p>
+                        <div class="button-group center-button">
+                            <button type="button" class="button button-secondary" id="prev-step-paystack"><i class="fas fa-arrow-left"></i> Back</button>
+                            <button type="button" class="button button-primary" id="pay-with-paystack">Pay with Paystack <i class="fas fa-credit-card"></i></button>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -702,12 +814,19 @@ if (isset($_GET['upload_success'])) {
         document.addEventListener('DOMContentLoaded', function() {
             const steps = {
                 1: document.getElementById('step1'),
-                2: document.getElementById('step2'),
+                'bank-transfer': document.getElementById('step-bank-transfer'),
+                'proof': document.getElementById('step-proof'),
+                'paystack': document.getElementById('step-paystack'),
                 3: document.getElementById('step3'),
                 4: document.getElementById('step4')
             };
             const nextStep1 = document.getElementById('next-step1');
-            const prevStep2 = document.getElementById('prev-step2');
+            const prevStepBankTransfer = document.getElementById('prev-step-bank-transfer');
+            const nextStepBankTransfer = document.getElementById('next-step-bank-transfer');
+            const prevStepProof = document.getElementById('prev-step-proof');
+            const prevStepPaystack = document.getElementById('prev-step-paystack');
+            const payWithPaystackBtn = document.getElementById('pay-with-paystack');
+
             const stepText = document.getElementById('step-text');
             const progressFill = document.getElementById('progress-fill');
             const browseBtn = document.getElementById('browse-btn');
@@ -721,13 +840,28 @@ if (isset($_GET['upload_success'])) {
             const paymentForm = document.getElementById('payment-form');
             const submitProofBtn = document.getElementById('submit-proof-btn');
 
-            let currentStep = <?php echo $initialStep; ?>;
+            let initialStep = <?php echo $initialStep; ?>;
+            let currentStep = initialStep > 2 ? initialStep : 1;
+
+            const paymentMethodOptions = document.querySelectorAll('.payment-method-option');
+
+            paymentMethodOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    paymentMethodOptions.forEach(o => o.classList.remove('selected'));
+                    option.classList.add('selected');
+                });
+            });
 
             function updateProgress() {
-                let progressPercent = 33;
-                if (currentStep === 2) progressPercent = 66;
-                if (currentStep >= 3) progressPercent = 100;
-                stepText.textContent = `Step ${Math.min(currentStep, 3)} of 3`;
+                let progressPercent = 25;
+                if (currentStep === 'bank-transfer' || currentStep === 'paystack') {stepText.textContent = `Step 2 of 4`; progressPercent = 50;}
+                if (currentStep === 'proof') {progressPercent = 75; stepText.textContent = `Step 3 of 4`;}
+                if (currentStep >= 3){
+                    progressPercent = 100; stepText.textContent = `Step 4 of 4`;
+                }
+                if(currentStep < 2){
+                    progressPercent = 10; stepText.textContent = `Step 1 of 4`;
+                }
                 progressFill.style.width = `${progressPercent}%`;
             }
 
@@ -740,8 +874,25 @@ if (isset($_GET['upload_success'])) {
                 }
             }
 
-            nextStep1.addEventListener('click', () => goToStep(2));
-            prevStep2.addEventListener('click', () => goToStep(1));
+            nextStep1.addEventListener('click', () => {
+                const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+                if (selectedPaymentMethod === 'bank_transfer') {
+                    goToStep('bank-transfer');
+                } else {
+                    goToStep('paystack');
+                }
+            });
+
+            prevStepBankTransfer.addEventListener('click', () => goToStep(1));
+            nextStepBankTransfer.addEventListener('click', () => goToStep('proof'));
+            prevStepProof.addEventListener('click', () => goToStep('bank-transfer'));
+            prevStepPaystack.addEventListener('click', () => goToStep(1));
+
+            payWithPaystackBtn.addEventListener('click', () => {
+                // Redirect to Paystack payment page
+                window.location.href = 'paystack_payment';
+            });
+
 
             browseBtn.addEventListener('click', () => fileInput.click());
 
@@ -772,7 +923,7 @@ if (isset($_GET['upload_success'])) {
             }
 
             paymentForm.addEventListener('submit', (e) => {
-                if (currentStep === 2 && fileInput.files.length === 0) {
+                if (currentStep === 'proof' && fileInput.files.length === 0) {
                     e.preventDefault();
                     alert('Please upload a payment proof before submitting.');
                 }

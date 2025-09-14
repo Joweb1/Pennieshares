@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>New Broker Application</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        h2 { color: #333; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin-bottom: 10px; }
+        strong { color: #555; }
+        .section { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>New Broker Application Received</h2>
+        <p>A user has submitted an application to become a broker. Here are their details:</p>
+        
+        <h3>Applicant Details:</h3>
+        <ul>
+            <li><strong>Username:</strong> {{username}}</li>
+            <li><strong>Email:</strong> {{email}}</li>
+        </ul>
+
+        <div class="section">
+            <h3>Personal Information:</h3>
+            <ul>
+                <li><strong>Full Legal Name:</strong> {{full_name}}</li>
+                <li><strong>Phone Number:</strong> {{phone_number}}</li>
+                <li><strong>Current Address:</strong> {{current_address}}</li>
+                <li><strong>Nationality:</strong> {{nationality}}</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h3>Employment:</h3>
+            <ul>
+                <li><strong>Employment Status:</strong> {{employment_status}}</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h3>Tech & Internet Savviness:</h3>
+            <ul>
+                <li><strong>Has tech knowledge:</strong> {{tech_knowledge}}</li>
+                <li><strong>Has a laptop:</strong> {{laptop_access}}</li>
+                <li><strong>Has a capable smartphone:</strong> {{smartphone_access}}</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h3>About the Applicant:</h3>
+            <p>{{about_self}}</p>
+        </div>
+
+        <div class="section">
+            <h3>Reason for Applying:</h3>
+            <p>{{why_broker}}</p>
+        </div>
+    </div>
+</body>
+</html>

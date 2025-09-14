@@ -1,4 +1,2 @@
-vendor/
-database/mydatabase.sqlite
-uploads/
-assets/videos/
+.env
+src.zip

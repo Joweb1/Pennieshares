@@ -1,4 +1,9 @@
 <?php
+// require_once __DIR__ . '/../vendor/autoload.php';
+
+// $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+// $dotenv->load();
+
 // Start session and check authentication
 require_once __DIR__ . '/functions.php';
 

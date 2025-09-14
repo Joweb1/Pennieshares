@@ -92,4 +92,31 @@ function send_user_transfer_email($to, $sender_name, $receiver_name, $amount) {
     ];
     return sendNotificationEmail('user_transfer_admin', $data, $to, $subject);
 }
+
+function sendBrokerApplicationEmails($pdo, $user, $formData) {
+    $adminEmail = 'penniepoint@gmail.com';
+
+    // Data for admin email
+    $admin_data = array_merge($formData, [
+        'username' => $user['username'],
+        'email' => $user['email']
+    ]);
+    
+    // Send to admin
+    $admin_subject = "New Broker Application from " . $user['username'];
+    $admin_body = getEmailTemplate('broker_application_admin', $admin_data);
+    $admin_email_sent = sendEmail($adminEmail, $admin_subject, $admin_body);
+
+    // Data for user email
+    $user_data = [
+        'username' => $user['username']
+    ];
+
+    // Send to user
+    $user_subject = "Your Broker Application has been Received";
+    $user_body = getEmailTemplate('broker_application_user', $user_data);
+    $user_email_sent = sendEmail($user['email'], $user_subject, $user_body);
+
+    return $admin_email_sent && $user_email_sent;
+}
 ?>
