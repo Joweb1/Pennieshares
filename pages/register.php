@@ -33,8 +33,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $_POST['username'])) {
-        $errors = "Username must be 3-20 characters (letters, numbers, underscores)";
+    if (empty($errors) && (strlen($_POST['username']) < 4 || strlen($_POST['username']) > 20)) {
+        $errors = "Username must be between 4 and 20 characters.";
+    }
+
+    // Check for username uniqueness
+    if (empty($errors)) {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+        $stmt->execute([$_POST['username']]);
+        if ($stmt->fetchColumn() > 0) {
+            $errors = "Username is already taken.";
+        }
     }
     
     if (strlen($_POST['password']) < 8) {
@@ -342,6 +351,11 @@ $partnercode = $_GET['partnercode'] ?? '';
 
         if (name === "" || username === "" || email === "" || phone === "" || password === "" || confirmPassword === "") {
             error.textContent = "Please fill in all required fields.";
+            return false;
+        }
+
+        if (username.length < 4 || username.length > 20) {
+            error.textContent = "Username must be between 4 and 20 characters.";
             return false;
         }
 

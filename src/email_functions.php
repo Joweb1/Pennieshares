@@ -5,8 +5,8 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/../vendor/autoload.php';
 
 function sendEmail($to, $subject, $body) {
-    $adminEmail = 'penniepoint@gmail.com';
-    $password = 'zlfu xlkf alxg xicp';
+    $adminEmail = $_ENV['MAIL_USERNAME'];
+    $password = $_ENV['MAIL_PASSWORD'];
 
     $mail = new PHPMailer(true);
 
@@ -94,7 +94,7 @@ function send_user_transfer_email($to, $sender_name, $receiver_name, $amount) {
 }
 
 function sendBrokerApplicationEmails($pdo, $user, $formData) {
-    $adminEmail = 'penniepoint@gmail.com';
+    $adminEmail = $_ENV['MAIL_USERNAME'];
 
     // Data for admin email
     $admin_data = array_merge($formData, [

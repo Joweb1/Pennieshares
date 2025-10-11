@@ -3,6 +3,12 @@ require_once __DIR__ . '/../src/functions.php';
 require_once __DIR__ . '/../src/assets_functions.php';
 check_auth();
 
+$actionMessage = '';
+if (isset($_SESSION['action_message'])) {
+    $actionMessage = $_SESSION['action_message'];
+    unset($_SESSION['action_message']);
+}
+
 $total_users_wallet_balance = getTotalUsersWalletBalance($pdo);
 $total_assets_cost = getTotalAssetsCost($pdo);
 $total_users_profit = getTotalUsersProfit($pdo);
@@ -15,7 +21,7 @@ if (!isset($_SESSION['user']) || empty($_SESSION['user']['is_admin'])) {
     exit("Access Denied: You do not have administrative privileges.");
 }
 
-$actionMessage = '';
+
 $purchaseDetails = null;
 $db = $pdo; 
 
@@ -171,6 +177,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
+// Handle Toggle User Earnings Pause form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle_earnings_pause') {
+    $userIdToToggle = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
+    $currentStatus = filter_input(INPUT_POST, 'current_status', FILTER_VALIDATE_INT);
+    $newStatus = ($currentStatus == 1) ? 0 : 1; // Toggle status
+
+    if ($userIdToToggle) {
+        if (toggleUserEarningsPause($pdo, $userIdToToggle, $newStatus)) {
+            $actionMessage = "User earnings pause status toggled successfully.";
+        } else {
+            $actionMessage = "Error: Failed to toggle user earnings pause status.";
+        }
+    } else {
+        $actionMessage = "Error: Invalid User ID.";
+    }
+}
+
 // Handle Verify User Account form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'verify_user_account') {
     $username = trim($_POST['username']);
@@ -224,6 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $payoutCap = filter_input(INPUT_POST, 'new_asset_payout_cap', FILTER_VALIDATE_FLOAT);
     $durationMonths = filter_input(INPUT_POST, 'new_asset_duration_months', FILTER_VALIDATE_INT);
     $category = trim($_POST['new_asset_category']);
+    $dividingPrice = filter_input(INPUT_POST, 'new_asset_dividing_price', FILTER_VALIDATE_FLOAT);
     $imageLink = null;
 
     // Server-side validation
@@ -261,7 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (empty($name) || $price === false || $payoutCap === false || $durationMonths === false) {
             $actionMessage = "Error: Invalid input for new asset type.";
         } else if ($actionMessage === '') { // Only proceed if no file upload error occurred
-            if (addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink, $category)) {
+            if (addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink, $category, $dividingPrice)) {
                 $actionMessage = "Asset type '{$name}' added successfully.";
             } else {
                 $actionMessage = "Error: Failed to add asset type.";
@@ -278,6 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $payoutCap = filter_input(INPUT_POST, 'edit_asset_payout_cap', FILTER_VALIDATE_FLOAT);
     $durationMonths = filter_input(INPUT_POST, 'edit_asset_duration_months', FILTER_VALIDATE_INT);
     $category = trim($_POST['edit_asset_category']);
+    $dividingPrice = filter_input(INPUT_POST, 'edit_asset_dividing_price', FILTER_VALIDATE_FLOAT);
     $imageLink = null;
 
     // Server-side validation
@@ -315,7 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (empty($name) || $price === false || $payoutCap === false || $durationMonths === false) {
             $actionMessage = "Error: Invalid input for new asset type.";
         } else if ($actionMessage === '') { // Only proceed if no file upload error occurred
-            if (updateAssetType($pdo, $assetTypeId, $name, $price, $payoutCap, $durationMonths, $imageLink, $category)) {
+            if (updateAssetType($pdo, $assetTypeId, $name, $price, $payoutCap, $durationMonths, $imageLink, $category, $dividingPrice)) {
                 $actionMessage = "Asset type '{$name}' updated successfully.";
             } else {
                 $actionMessage = "Error: Failed to update asset type.";
@@ -362,6 +387,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $actionMessage = "Successfully deleted {$deletedCount} expired or completed assets.";
     } else {
         $actionMessage = "Error: Failed to delete expired or completed assets.";
+    }
+}
+
+// Handle Generate Missing Asset Stats form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'generate_missing_stats') {
+    $generatedCount = generateStatsForExistingAssets($pdo);
+    if ($generatedCount !== false) {
+        $actionMessage = "Successfully generated initial stats for {$generatedCount} new asset types.";
+    } else {
+        $actionMessage = "Error: Failed to generate missing asset stats.";
     }
 }
 
@@ -702,6 +737,20 @@ include __DIR__ . '/../assets/template/intro-template.php';
         background-color: #0a69c4;
     }
 
+    .pause-btn {
+        background-color: #0c7ff2;
+        color: white;
+        border-radius: 5px;
+        padding: 5px 10px;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .pause-btn:hover {
+        background-color: #0a69c4;
+    }
+
     /* Pagination Styles */
     .pagination {
         display: flex;
@@ -759,6 +808,7 @@ include __DIR__ . '/../assets/template/intro-template.php';
         <div><h4>Company Profit</h4><p>SV<?php echo number_format($companyFunds['total_company_profit'], 2); ?></p></div>
         <div><h4>Reservation Fund</h4><p>₦<?php echo number_format($companyFunds['total_reservation_fund'], 2); ?></p></div>
         <div><h4>Total Live Assets</h4><p><?php echo htmlspecialchars($assetStatusDistribution['active_count'] ?? 0); ?></p></div>
+         <div><h4>Total Sold Assets</h4><p><?php echo htmlspecialchars($assetStatusDistribution['sold_count'] ?? 0); ?></p></div>
          <div><h4>Total Users</h4><p><?php echo $total_users; ?></p></div>
         <div><h4>Total Pending Profits</h4><p><?php echo $total_pending_profits_count; ?></p></div>
         <div><h4>Pending Profits Sum</h4><p>SV<?php echo number_format($total_pending_profits_sum, 2); ?></p></div>
@@ -886,6 +936,7 @@ include __DIR__ . '/../assets/template/intro-template.php';
             <div><label for="new_asset_duration_months">Duration (Months, 0 for unlimited):</label><input type="number" name="new_asset_duration_months" id="new_asset_duration_months" value="0" min="0" required></div>
             <div><label for="new_asset_image">Asset Image (Optional):</label><input type="file" name="new_asset_image" id="new_asset_image" accept="image/*"></div>
             <div><label for="new_asset_category">Category:</label><input type="text" name="new_asset_category" id="new_asset_category" value="General" pattern="[A-Z].*" title="Category must start with a capital letter." required></div>
+            <div><label for="new_asset_dividing_price">Dividing Price (Optional):</label><input type="number" step="0.01" name="new_asset_dividing_price" id="new_asset_dividing_price" placeholder="e.g., 100.00"></div>
             <button type="submit">Add Asset Type</button>
         </form>
     </div>
@@ -920,7 +971,17 @@ include __DIR__ . '/../assets/template/intro-template.php';
             <div><label for="edit_asset_duration_months">Duration (Months, 0 for unlimited):</label><input type="number" name="edit_asset_duration_months" id="edit_asset_duration_months" value="0" min="0" required></div>
             <div><label for="edit_asset_image">New Asset Image (Optional):</label><input type="file" name="edit_asset_image" id="edit_asset_image" accept="image/*"></div>
             <div><label for="edit_asset_category">Category:</label><input type="text" name="edit_asset_category" id="edit_asset_category" value="General" pattern="[A-Z].*" title="Category must start with a capital letter." required></div>
+            <div><label for="edit_asset_dividing_price">Dividing Price (Optional):</label><input type="number" step="0.01" name="edit_asset_dividing_price" id="edit_asset_dividing_price" placeholder="e.g., 100.00"></div>
             <button type="submit">Update Asset Type</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h2>Generate Missing Asset Stats</h2>
+        <form method="post">
+            <input type="hidden" name="action" value="generate_missing_stats">
+            <p>This will generate 3 months of historical data for any asset types that do not currently have it. It will also set a new random dividing price for them.</p>
+            <button type="submit" onclick="return confirm('Are you sure you want to generate missing historical data for asset types?');">Generate Stats</button>
         </form>
     </div>
 
@@ -1022,9 +1083,19 @@ include __DIR__ . '/../assets/template/intro-template.php';
             <input type="text" name="user_search" placeholder="Search by username..." value="<?php echo htmlspecialchars($user_search_query); ?>">
             <button type="submit">Search</button>
         </form>
+        <?php
+        $unpaused_users_stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE earnings_paused = 0");
+        $unpaused_users_count = $unpaused_users_stmt->fetchColumn();
+        $all_users_action = ($unpaused_users_count > 0) ? 'pause' : 'resume';
+        $all_users_button_text = ($unpaused_users_count > 0) ? 'Pause All Users Earnings' : 'Resume All Users Earnings';
+        ?>
+        <form method="POST" action="pause_all_users" onsubmit="return confirm('Are you sure you want to <?php echo $all_users_action; ?> earnings for all users?');">
+            <input type="hidden" name="action" value="<?php echo $all_users_action; ?>">
+            <button type="submit" class="pause-btn"><?php echo $all_users_button_text; ?></button>
+        </form>
     </div>
     <div class="table-responsive">
-        <table><thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Wallet Balance</th><th>Is Admin?</th><th>Is Broker?</th><th>Status</th></tr></thead><tbody>
+        <table><thead><tr><th>User ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Wallet Balance</th><th>Is Admin?</th><th>Is Broker?</th><th>Status</th><th>Earnings Paused</th><th>Actions</th></tr></thead><tbody>
             <?php foreach ($users as $user): ?>
                 <tr>
                     <td data-label="User ID"><?php echo $user['id']; ?></td>
@@ -1035,6 +1106,19 @@ include __DIR__ . '/../assets/template/intro-template.php';
                     <td data-label="Is Admin?"><?php echo $user['is_admin'] ? 'Yes' : 'No'; ?></td>
                     <td data-label="Is Broker?"><?php echo $user['is_broker'] ? 'Yes' : 'No'; ?></td>
                     <td data-label="Status"><?php echo $user['status'] == 2 ? 'Verified' : 'Not Verified'; ?></td>
+                    <td data-label="Earnings Paused">
+                        <?php echo $user['earnings_paused'] ? 'Yes' : 'No'; ?>
+                    </td>
+                    <td data-label="Actions">
+                        <form method="post" style="display:inline-block;">
+                            <input type="hidden" name="action" value="toggle_earnings_pause">
+                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                            <input type="hidden" name="current_status" value="<?php echo $user['earnings_paused']; ?>">
+                            <button type="submit" class="pause-btn">
+                                <?php echo $user['earnings_paused'] ? 'Resume' : 'Pause'; ?>
+                            </button>
+                        </form>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </tbody></table>
@@ -1135,11 +1219,11 @@ document.addEventListener('DOMContentLoaded', function() {
         new Chart(statusCtx, {
             type: 'pie',
             data: {
-                labels: ['Active', 'Completed', 'Expired'],
+                labels: ['Active', 'Completed', 'Expired', 'Sold'],
                 datasets: [{
                     label: 'Asset Statuses',
-                    data: [<?php echo json_encode($assetStatusDistribution['active_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['completed_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['expired_count'] ?? 0); ?>],
-                    backgroundColor: ['#27ae60', '#3498db', '#e74c3c']
+                    data: [<?php echo json_encode($assetStatusDistribution['active_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['completed_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['expired_count'] ?? 0); ?>, <?php echo json_encode($assetStatusDistribution['sold_count'] ?? 0); ?>],
+                    backgroundColor: ['#27ae60', '#3498db', '#e74c3c', '#f1c40f']
                 }]
             },
             options: {
@@ -1184,6 +1268,7 @@ function populateEditAssetForm(select) {
     document.getElementById('edit_asset_payout_cap').value = selectedOption.dataset.payoutCap;
     document.getElementById('edit_asset_duration_months').value = selectedOption.dataset.durationMonths;
     document.getElementById('edit_asset_category').value = selectedOption.dataset.category;
+    document.getElementById('edit_asset_dividing_price').value = selectedOption.dataset.dividingPrice || '';
 }
 </script>
 <?php include __DIR__ . '/../assets/template/end-template.php'; ?>

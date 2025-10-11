@@ -5,8 +5,14 @@ check_auth();
 $loggedInUser = $_SESSION['user'];
 $loggedInUserId = $loggedInUser['id'];
 
+$sellAssetMessage = $_SESSION['sell_asset_message'] ?? '';
+$sellAssetStatus = $_SESSION['sell_asset_status'] ?? '';
+
+// Clear session variables after displaying
+unset($_SESSION['sell_asset_message'], $_SESSION['sell_asset_status']);
+
 // Fetch all of the user's assets with their type details
-$userAssets = getUserAssets($pdo, $loggedInUserId);
+$userAssets = getGroupedUserAssets($pdo, $loggedInUserId);
 
 // --- CALCULATIONS ---
 
@@ -22,15 +28,13 @@ $totalReturnSV = $stmt->fetchColumn() ?? 0;
 
 // Process each asset
 foreach ($userAssets as $asset) {
-    if ($asset['current_status'] === 'Active') {
-        $totalAssetWorth += $asset['type_payout_cap'];
-        $category = $asset['asset_type_name']; // Using asset name as category for this example
-        if (!isset($assetAllocation[$category])) {
-            $assetAllocation[$category] = 0;
-        }
-        $assetAllocation[$category]++;
-        $activeAssetsCount++;
+    $totalAssetWorth += $asset['type_payout_cap'] * $asset['total_assets_count'];
+    $category = $asset['asset_type_name']; // Using asset name as category for this example
+    if (!isset($assetAllocation[$category])) {
+        $assetAllocation[$category] = 0;
     }
+    $assetAllocation[$category] += $asset['total_assets_count'];
+    $activeAssetsCount += $asset['total_assets_count'];
 }
 
 // Sort allocation by count, descending
@@ -251,20 +255,6 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       border-radius: 2px;
       background-color: var(--accent);
     }
-    .status-btn {
-      min-width: 84px;
-      cursor: pointer;
-      border-radius: 8px;
-      height: 32px;
-      padding: 0 12px;
-      color: var(--primary-text);
-      font-weight: 500;
-      border: none;
-      transition: background-color 0.3s ease;
-    }
-    .status-active { background-color: rgba(34, 197, 94, 0.2); color: #22c55e; }
-    .status-completed { background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; }
-    .status-expired { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
 
     .asset-table-image {
       width: 40px;
@@ -272,6 +262,14 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       border-radius: 50%;
       object-fit: cover;
       border: 1px solid var(--border);
+    }
+
+    .clickable-row {
+        cursor: pointer;
+    }
+
+    .clickable-row:hover {
+        background-color: var(--card-bg-hover);
     }
 
     /* Responsive styles */
@@ -294,6 +292,12 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             <h1 class="portfolio-title">Assets</h1>
             <p class="portfolio-subtitle">Track your shares and assets allocation</p>
         </div>
+
+        <?php if (!empty($sellAssetMessage)): ?>
+            <div class="message-box <?php echo $sellAssetStatus === 'success' ? 'success' : 'error'; ?>">
+                <?php echo htmlspecialchars($sellAssetMessage); ?>
+            </div>
+        <?php endif; ?>
 
         <div class="cards-container">
             <div class="card">
@@ -339,25 +343,22 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                         <tr>
                             <th>Image</th>
                             <th>Asset</th>
-                            <th>Price</th>
-                            <th>Asset Worth</th>
-                            <th>Total Profit</th>
-                            <th>Progress</th>
-                            <th>Status</th>
+                            <th>Quantity</th>
+                            <th>Total Earned</th>
+                            <th>Avg. Progress</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($userAssets)): ?>
-                            <tr><td colspan="6" style="text-align: center;">You do not own any assets yet.</td></tr>
+                            <tr><td colspan="5" style="text-align: center;">You do not own any assets yet.</td></tr>
                         <?php else: ?>
                             <?php foreach ($userAssets as $asset): ?>
                                 <?php
-                                    $totalProfit = $asset['total_earned'];
-                                    $assetWorth = $asset['type_payout_cap'];
-                                    $progress = ($assetWorth > 0) ? ($totalProfit / $assetWorth) * 100 : 0;
+                                    $totalPayoutCap = $asset['type_payout_cap'] * $asset['total_assets_count'];
+                                    $progress = ($totalPayoutCap > 0) ? ($asset['total_earned_grouped'] / $totalPayoutCap) * 100 : 0;
                                     $progress = min(100, $progress); // Cap progress at 100%
                                 ?>
-                                <tr>
+                                <tr class="clickable-row" data-href="grouped_assets?asset_type_id=<?php echo $asset['asset_type_id']; ?>">
                                     <td>
                                         <?php if (!empty($asset['image_link'])): ?>
                                             <img src="<?php echo htmlspecialchars($asset['image_link']); ?>" alt="<?php echo htmlspecialchars($asset['asset_type_name']); ?>" class="asset-table-image">
@@ -367,16 +368,12 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                                     </td>
                                     <td>
                                         <div class="asset-name"><?php echo htmlspecialchars($asset['asset_type_name']); ?></div>
-                                        <div class="asset-value"><?php echo htmlspecialchars(getAssetBranding($asset['asset_type_id'])['category']); ?></div>
                                     </td>
                                     <td>
-                                        <div class="asset-name">SV <?php echo number_format($asset['asset_price'], 2); ?></div>
+                                        <div class="asset-name"><?php echo htmlspecialchars($asset['total_assets_count']); ?></div>
                                     </td>
                                     <td>
-                                        <div class="asset-name">SV <?php echo number_format($assetWorth, 2); ?></div>
-                                    </td>
-                                    <td>
-                                        <div class="card-change positive">+SV <?php echo number_format($totalProfit, 2); ?></div>
+                                        <div class="card-change positive">+SV <?php echo number_format($asset['total_earned_grouped'], 2); ?></div>
                                     </td>
                                     <td>
                                         <div class="progress-container">
@@ -385,11 +382,6 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                                             </div>
                                             <span><?php echo number_format($progress, 0); ?>%</span>
                                         </div>
-                                    </td>
-                                    <td>
-                                        <button class="status-btn status-<?php echo strtolower($asset['current_status']); ?>">
-                                            <?php echo htmlspecialchars($asset['current_status']); ?>
-                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -400,7 +392,16 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         </div>
     </div>
 </main>
-
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const rows = document.querySelectorAll('.clickable-row');
+        rows.forEach(row => {
+            row.addEventListener('click', () => {
+                window.location.href = row.dataset.href;
+            });
+        });
+    });
+</script>
 <?php
 // Include the footer template
 require_once __DIR__ . '/../assets/template/end-template.php';

@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Zenith Bank Stock</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          primary: "#0A2463",
+          "background-light": "#FFFFFF",
+          "background-dark": "#121212",
+          "green-900": "#10b981", // Green for selected buttons
+        },
+        fontFamily: {
+          display: ["Roboto", "sans-serif"],
+        },
+        borderRadius: {
+          DEFAULT: "0.5rem",
+        },
+        fontSize: {
+          // Reduced font sizes by approximately 30%
+          'xs': '0.7rem',
+          'sm': '0.8rem',
+          'base': '0.9rem',
+          'lg': '1rem',
+          'xl': '1.1rem',
+          '2xl': '1.3rem',
+          '3xl': '1.5rem',
+          '4xl': '1.8rem',
+        }
+      },
+    },
+  };
+</script>
+
+<style>
+  body { 
+    font-family: 'Roboto', sans-serif; 
+    font-size: 0.9rem; /* Reduced base font size */
+  }
+  body { min-height: max(884px, 100dvh); }
+  /* tiny animations */
+  .fade-in { animation: fadeIn .4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+  .pill-transition { transition: all .22s cubic-bezier(.2,.8,.2,1); }
+  .chart-wrap { min-height: 200px; }
+  
+  /* Hide Highcharts axis labels and grid lines */
+  .highcharts-axis-labels, 
+  .highcharts-grid-line, 
+  .highcharts-axis-line,
+  .highcharts-yaxis-grid .highcharts-grid-line,
+  .highcharts-xaxis-grid .highcharts-grid-line {
+    display: none !important;
+  }
+  
+  .highcharts-container {
+    overflow: hidden !important;
+  }
+  
+  /* Theme-aware chart colors */
+  .highcharts-background {
+    fill: transparent !important;
+  }
+  
+  /* Custom scrollbar for log */
+  .log-container {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  .log-container::-webkit-scrollbar {
+    width: 6px;
+  }
+  .log-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  .log-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+  }
+  .dark .log-container::-webkit-scrollbar-track {
+    background: #2d3748;
+  }
+  .dark .log-container::-webkit-scrollbar-thumb {
+    background: #4a5568;
+  }
+</style>
+
+<!-- Highcharts Stock -->
+<script src="https://code.highcharts.com/stock/highstock.js"></script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-gray-900 dark:text-gray-100">
+<div class="max-w-md mx-auto pb-20"> <!-- extra bottom padding -->
+  <header class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+    <span class="material-icons text-gray-800 dark:text-gray-200">arrow_back_ios_new</span>
+    <h1 class="font-bold text-lg text-primary">Stock Asset</h1>
+    <span class="material-icons text-gray-800 dark:text-gray-200">add_circle_outline</span>
+  </header>
+
+  <main class="p-3">
+    <div class="flex items-center mb-2">
+      <img alt="Zenith Bank Logo" class="h-12 w-12 mr-4 rounded-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuoie7x0Ecnzg5Vvd6uh_gNtPqT89ObcqzR2G3tzOYtC7E86Y9z4T22435KYuFnCJrlJuZoa4CBuylWKiNSFQoNE0ddo8wMkb8nupYOD6dd1TebDVf5VLshiYXDULU4yXE150xyrkkQct7xRHrvSb39TXh1TpmFQkRFhF1W9Eehse7zC-pmPhwaWV1MZudnrIqsEoijk668DtCvhA57eb1qCjT7zqw60eM5y-1SV3qC6rTvOZvDhPJOlQMKOwTbQ30gYQSAZFTBVnl"/>
+      <div>
+        <h2 class="font-bold text-2xl">Zenith Bank Plc</h2>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <p id="priceDisplay" class="text-4xl font-bold">SV21.00</p> <!-- this the assets price -->
+      <p id="volumeDisplay" class="text-xl font-bold text-gray-600">₦66.95 × 35</p> <!-- this is the assets optional original price multiplied by the result of (assets price × 100 and then multiplied by assets optional original price) e.i 66.95 × ((21×100)÷66.95) -->
+      <div id="changeRow" class="flex items-center text-red-500 mt-1">
+        <span id="changeIcon" class="material-icons text-sm">arrow_downward</span>
+        <p id="changeText" class="ml-1 text-sm">-₦0.85 (-1.25%) <span class="text-gray-500 dark:text-gray-400 ml-1">Last closing quote</span></p>
+      </div>
+    </div>
+
+    <div class="flex items-center text-sm mb-3">
+      <span id="marketBadge" class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-semibold pill-transition">Market Closed</span>
+      <p id="marketCountdown" class="ml-2 text-gray-600 dark:text-gray-400 text-xs">Opens in -- at 10:00</p>
+      <span class="material-icons text-gray-500 ml-1 text-xs">info</span>
+    </div>
+
+    <!-- chart container -->
+    <div class="mb-3 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-sm fade-in chart-wrap">
+      <div id="stockChart" class="w-full" style="height:200px;"></div>
+    </div>
+
+    <!-- timeframe buttons + chart type toggle -->
+    <div class="flex justify-between items-center mb-3 text-sm text-gray-600 dark:text-gray-400 gap-2">
+      <div class="flex gap-2" id="rangeButtons">
+        <button data-range="1D" class="px-2 py-1 rounded-full text-xs font-semibold pill-transition">1D</button>
+        <button data-range="1W" class="px-2 py-1 rounded-full text-xs font-semibold pill-transition">1W</button>
+        <button data-range="1M" class="px-2 py-1 rounded-full text-xs font-semibold pill-transition">1M</button>
+        <button data-range="3M" class="px-2 py-1 rounded-full bg-green-700 text-white text-xs font-semibold pill-transition">3M</button>
+        <button data-range="1Y" class="px-2 py-1 rounded-full text-xs font-semibold pill-transition">1Y</button>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="chartToggleIcon" class="material-icons text-primary cursor-pointer text-base">candlestick_chart</span>
+      </div>
+    </div>
+
+    <div class="bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-3 rounded mb-4" role="alert">
+      <div class="flex">
+        <div class="py-1"><span class="material-icons text-yellow-500 mr-2 text-sm">warning</span></div>
+        <div>
+          <p class="text-xs">Please be aware that while trading stocks, the value of a stock may fluctuate, and past performance is not indicative of future results.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <h3 class="text-lg font-bold mb-3">Key Stats</h3>
+      <div id="statsGrid" class="grid grid-cols-3 gap-3 text-sm">
+        <div>
+          <p class="text-gray-500 dark:text-gray-400 text-xs">Open</p>
+          <p id="statOpen" class="font-semibold text-base">₦67.80</p>
+        </div>
+        <div>
+          <p class="text-gray-500 dark:text-gray-400 text-xs">High</p>
+          <p id="statHigh" class="font-semibold text-base">₦67.75</p>
+        </div>
+        <div>
+          <p class="text-gray-500 dark:text-gray-400 text-xs">Low</p>
+          <p id="statLow" class="font-semibold text-base">₦64.00</p>
+        </div>
+        <div>
+          <p class="text-gray-500 dark:text-gray-400 text-xs">Prev Close</p>
+          <p id="statPrev" class="font-semibold text-base">₦67.80</p>
+        </div>
+        <div>
+          <p class="text-gray-500 dark:text-gray-400 text-xs">52 Wk High</p>
+          <p id="stat52High" class="font-semibold text-base">₦78.50</p>
+        </div>
+        <div>
+          <p class="text-gray-500 dark:text-gray-400 text-xs">52 Wk Low</p>
+          <p id="stat52Low" class="font-semibold text-base">₦35.10</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-background-light dark:bg-background-dark p-3 border-t border-gray-200 dark:border-gray-700">
+    <div class="flex justify-between items-center">
+      <p id="wallet" class="text-xs text-gray-500 dark:text-gray-400">₦949,212.00 - NGN Wallet</p>
+      <div class="flex gap-2">
+        <button id="buyBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transform hover:-translate-y-0.5 transition text-sm">BUY</button>
+        <button id="sellBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transform hover:-translate-y-0.5 transition text-sm">SELL</button>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ========= Utilities ========= */
+const formatCurrency = v => '₦' + Number(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const formatSv = v => 'SV' + Number(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const now = () => new Date();
+
+/* ========= Data Storage ========= */
+const STORAGE_KEY = 'zenithBankHistoricalData';
+const DAILY_STATS_KEY = 'zenithBankDailyStats';
+const PREV_CLOSE_KEY = 'zenithBankPrevClose';
+
+function getStoredData() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored ? JSON.parse(stored) : null;
+}
+
+function storeData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getStoredDailyStats() {
+  const stored = localStorage.getItem(DAILY_STATS_KEY);
+  return stored ? JSON.parse(stored) : null;
+}
+
+function storeDailyStats(stats) {
+  localStorage.setItem(DAILY_STATS_KEY, JSON.stringify(stats));
+}
+
+function getStoredPrevClose() {
+  const stored = localStorage.getItem(PREV_CLOSE_KEY);
+  return stored ? parseFloat(stored) : null;
+}
+
+function storePrevClose(price) {
+  localStorage.setItem(PREV_CLOSE_KEY, price.toString());
+}
+
+/* ========= Mock / generated historical data ========= */
+function generateData(days = 90) { // Default to 3 months
+  const data = [];
+  let price = 70;
+  const now = Date.now();
+  for (let i = days; i > 0; i--) {
+    const time = now - i * 24 * 3600 * 1000;
+    const open = price;
+    const close = price + (Math.random() - 0.5) * 2;
+    const high = Math.max(open, close) + Math.random();
+    const low = Math.min(open, close) - Math.random();
+    data.push([time, open, high, low, close]);
+    price = close;
+  }
+  return data;
+}
+
+/* ========= State & rendering ========= */
+const state = {
+  basePrice: 67.8,
+  currentPrice: 67.8,
+  seriesCache: {},
+  activeRange: '3M', // Default to 3 months
+  chartType: 'candlestick',
+  chart: null,
+  dailyStats: {
+    open: 67.8,
+    high: 67.8,
+    low: 67.8,
+    lastReset: null
+  },
+  prevClose: 67.8
+};
+
+/* ========= Market Time Functions ========= */
+function isMarketOpen() {
+  const d = new Date();
+  const hour = d.getHours();
+  return hour >= 10 && hour < 18;
+}
+
+function getNextResetTime() {
+  const d = new Date();
+  // If before 10:00, reset at 10:00 today
+  if (d.getHours() < 10) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10, 0, 0);
+  }
+  // Otherwise, reset at 10:00 tomorrow
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 10, 0, 0);
+}
+
+function getNextCloseTime() {
+  const d = new Date();
+  // If before 18:00, close at 18:00 today
+  if (d.getHours() < 18) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 18, 0, 0);
+  }
+  // Otherwise, close at 18:00 tomorrow
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 18, 0, 0);
+}
+
+function checkForDailyReset() {
+  const now = new Date();
+  const hour = now.getHours();
+  const minutes = now.getMinutes();
+  
+  // Check if it's 10:00 (market open)
+  if (hour === 10 && minutes === 0) {
+    resetDailyStats();
+  }
+  
+  // Check if it's 18:00 (market close)
+  if (hour === 18 && minutes === 0) {
+    updatePrevClose();
+  }
+}
+
+function resetDailyStats() {
+  // Reset daily stats with current price as new open
+  state.dailyStats = {
+    open: state.currentPrice,
+    high: state.currentPrice,
+    low: state.currentPrice,
+    lastReset: new Date()
+  };
+  
+  storeDailyStats(state.dailyStats);
+  
+  // Update UI
+  updateStatsDisplay();
+}
+
+function updatePrevClose() {
+  // Set previous close to the last price of the day
+  state.prevClose = state.currentPrice;
+  storePrevClose(state.prevClose);
+}
+
+/* Create Highcharts chart */
+function createChart(dataPoints) {
+  // Destroy existing chart if it exists
+  if (state.chart) {
+    state.chart.destroy();
+  }
+  
+  // Theme-aware colors
+  const isDarkMode = document.body.classList.contains('dark');
+  const textColor = isDarkMode ? '#e5e7eb' : '#374151';
+  const tooltipBg = isDarkMode ? '#1f2937' : '#ffffff';
+  
+  // Create new chart
+  state.chart = Highcharts.stockChart('stockChart', {
+    chart: {
+      backgroundColor: 'transparent',
+      height: 200,
+      zoomType: null // Disable zoom
+    },
+    rangeSelector: { 
+      enabled: false 
+    },
+    navigator: { 
+      enabled: false 
+    },
+    scrollbar: { 
+      enabled: false 
+    },
+    accessibility:{
+    	enabled: false
+    },
+    title: { 
+      text: '' 
+    },
+    yAxis: {
+      opposite: false,
+      gridLineWidth: 0, // Hide grid lines
+      labels: {
+        enabled: false // Hide y-axis labels
+      },
+      title: {
+        text: null // Hide y-axis title
+      }
+    },
+    xAxis: {
+      type: 'datetime',
+      gridLineWidth: 0, // Hide grid lines
+      labels: {
+        enabled: false // Hide x-axis labels
+      },
+      title: {
+        text: null // Hide x-axis title
+      }
+    },
+    tooltip: {
+      split: false,
+      shared: true,
+      backgroundColor: tooltipBg,
+      style: {
+        color: textColor
+      }
+    },
+    plotOptions: {
+      candlestick: {
+        color: '#ef4444',   // Red for down candles
+        upColor: '#10b981', // Green for up candles
+        lineColor: '#ef4444',
+        upLineColor: '#10b981'
+      },
+      line: {
+        color: '#ef4444',   // Red for line chart
+        lineWidth: 2
+      }
+    },
+    series: [{
+      type: state.chartType === 'candlestick' ? 'candlestick' : 'line',
+      name: 'ZENITHBANK',
+      data: state.chartType === 'candlestick' ? dataPoints : dataPoints.map(d => [d[0], d[4]]),
+      tooltip: {
+        valueDecimals: 2
+      }
+    }]
+  });
+}
+
+/* Generate data for specific range */
+function generateRangeData(range) {
+  if (state.seriesCache[range]) return state.seriesCache[range];
+
+  let days;
+  if (range === '1D') days = 1;
+  else if (range === '1W') days = 7;
+  else if (range === '1M') days = 30;
+  else if (range === '3M') days = 90;
+  else if (range === '1Y') days = 365;
+  else days = 90; // Default to 3 months
+
+  const data = generateData(days);
+  state.seriesCache[range] = data;
+  
+  // Store in localStorage for continuity
+  const storedData = getStoredData() || {};
+  storedData[range] = data;
+  storeData(storedData);
+  
+  return data;
+}
+
+/* Load data from storage if available */
+function loadRangeData(range) {
+  const storedData = getStoredData();
+  if (storedData && storedData[range]) {
+    state.seriesCache[range] = storedData[range];
+    return storedData[range];
+  }
+  return generateRangeData(range);
+}
+
+/* Render chart based on activeRange & chartType */
+function renderChart() {
+  // Always use 3 months data regardless of selected range
+  const data = loadRangeData('3M');
+  
+  createChart(data);
+
+  // Update displayed current price (use last close)
+  const last = data[data.length - 1];
+  if (last) {
+    state.currentPrice = last[4];
+    updatePriceDisplay(last[4]);
+    updateStatsFromPrice(data);
+  }
+}
+
+/* Update price text and change indicator */
+function updatePriceDisplay(price) {
+  document.getElementById('priceDisplay').textContent = formatSv(price);
+  
+  // Use previous close for change calculation
+  const prev = state.prevClose;
+  const diff = (price - prev);
+  const pct = (diff / prev * 100).toFixed(2);
+  const changeRow = document.getElementById('changeRow');
+  const changeText = document.getElementById('changeText');
+  const changeIcon = document.getElementById('changeIcon');
+
+  if (diff >= 0) {
+    changeRow.classList.remove('text-red-500');
+    changeRow.classList.add('text-green-500');
+    changeIcon.textContent = 'arrow_upward';
+    changeText.innerHTML = `+${formatCurrency(Math.abs(diff))} (+${Math.abs(pct)}%) <span class="text-gray-500 dark:text-gray-400 ml-1">Since prev</span>`;
+  } else {
+    changeRow.classList.remove('text-green-500');
+    changeRow.classList.add('text-red-500');
+    changeIcon.textContent = 'arrow_downward';
+    changeText.innerHTML = `${formatCurrency(diff)} (${pct}%) <span class="text-gray-500 dark:text-gray-400 ml-1">Since prev</span>`;
+  }
+}
+
+/* Update key stats from the data */
+function updateStatsFromPrice(data) {
+  const close = state.currentPrice;
+  
+  // Update daily stats if market is open
+  if (isMarketOpen()) {
+    state.dailyStats.high = Math.max(state.dailyStats.high, close);
+    state.dailyStats.low = Math.min(state.dailyStats.low, close);
+    storeDailyStats(state.dailyStats);
+  }
+  
+  // 52wk high/low derived from series or extended randomization
+  const allCloses = data.map(d => d[4]);
+  const seriesHigh = Math.max(...allCloses);
+  const seriesLow = Math.min(...allCloses);
+  const wk52High = Math.max(seriesHigh, close * (1 + 0.15));
+  const wk52Low = Math.min(seriesLow, close * (1 - 0.45));
+
+  updateStatsDisplay(wk52High, wk52Low);
+  
+  // Volume display mock
+  document.getElementById('volumeDisplay').textContent = `${formatCurrency((Math.random()*200 + 20).toFixed(2))} × ${Math.floor(Math.random()*200+10)}`;
+}
+
+/* Update stats display */
+function updateStatsDisplay(wk52High, wk52Low) {
+  document.getElementById('statOpen').textContent = formatCurrency(state.dailyStats.open);
+  document.getElementById('statHigh').textContent = formatCurrency(state.dailyStats.high);
+  document.getElementById('statLow').textContent = formatCurrency(state.dailyStats.low);
+  document.getElementById('statPrev').textContent = formatCurrency(state.prevClose);
+  
+  if (wk52High && wk52Low) {
+    document.getElementById('stat52High').textContent = formatCurrency(Number(wk52High).toFixed(2));
+    document.getElementById('stat52Low').textContent = formatCurrency(Number(wk52Low).toFixed(2));
+  }
+}
+
+/* ========= Controls wiring ========= */
+document.getElementById('rangeButtons').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-range]');
+  if (!btn) return;
+  const range = btn.getAttribute('data-range');
+  
+  // UI active state - use green for selected
+  document.querySelectorAll('#rangeButtons button').forEach(b => {
+    b.classList.remove('bg-green-900', 'text-white');
+    b.classList.add('bg-green-100', 'text-gray-600');
+  });
+  btn.classList.add('bg-green-900', 'text-white');
+
+  state.activeRange = range;
+  // Note: We're not re-rendering the chart when range changes
+  // The chart will always show 3 months of data
+});
+
+// Candle icon toggle
+document.getElementById('chartToggleIcon').addEventListener('click', () => {
+  if (state.chartType === 'candlestick') {
+    state.chartType = 'line';
+    document.getElementById('chartToggleIcon').textContent = 'show_chart';
+  } else {
+    state.chartType = 'candlestick';
+    document.getElementById('chartToggleIcon').textContent = 'candlestick_chart';
+  }
+  renderChart();
+});
+
+/* ========= Market open/close logic ========= */
+function marketStatusNow() {
+  const d = new Date();
+  const openHour = 10, closeHour = 18;
+  const open = new Date(d.getFullYear(), d.getMonth(), d.getDate(), openHour, 0, 0);
+  const close = new Date(d.getFullYear(), d.getMonth(), d.getDate(), closeHour, 0, 0);
+  if (d >= open && d < close) {
+    // market open
+    const msLeft = close - d;
+    return { open: true, msLeft, nextEvent: close, label: 'Market Open' };
+  } else {
+    // market closed; find next open (today if before open or tomorrow's open)
+    if (d < open) {
+      const msLeft = open - d;
+      return { open: false, msLeft, nextEvent: open, label: 'Market Closed' };
+    } else {
+      // after close => next day open
+      const nextOpen = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, openHour,0,0);
+      const msLeft = nextOpen - d;
+      return { open: false, msLeft, nextEvent: nextOpen, label: 'Market Closed' };
+    }
+  }
+}
+
+function formatMs(ms){
+  if (ms <= 0) return '0s';
+  const totalSec = Math.floor(ms/1000);
+  const h = Math.floor(totalSec/3600);
+  const m = Math.floor((totalSec%3600)/60);
+  const s = totalSec%60;
+  if (h>0) return `${h}h ${m}m ${s}s`;
+  if (m>0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function updateMarketBadge() {
+  const status = marketStatusNow();
+  const badge = document.getElementById('marketBadge');
+  const countdown = document.getElementById('marketCountdown');
+
+  // Change style
+  if (status.open) {
+    badge.textContent = 'Market Open';
+    badge.classList.remove('bg-gray-200','dark:bg-gray-700','text-gray-700','dark:text-gray-300');
+    badge.classList.add('bg-green-100','text-green-800','dark:bg-green-900','dark:text-green-300');
+    countdown.textContent = `Closes in ${formatMs(status.msLeft)} (closes at 18:00)`;
+  } else {
+    badge.textContent = 'Market Closed';
+    badge.classList.remove('bg-green-100','text-green-800','dark:bg-green-900','dark:text-green-300');
+    badge.classList.add('bg-gray-200','dark:bg-gray-700','text-gray-700','dark:text-gray-300');
+    // If next event is tomorrow, show open time with absolute date optionally
+    const next = status.nextEvent;
+    const opts = { hour: '2-digit', minute: '2-digit' };
+    countdown.textContent = `Opens in ${formatMs(status.msLeft)} at ${next.toLocaleTimeString([], opts)}`;
+  }
+}
+
+/* Update every second for market status */
+setInterval(() => {
+  updateMarketBadge();
+  checkForDailyReset();
+}, 1000);
+
+/* ========= Initial bootstrap ========= */
+function bootstrap() {
+  // Set a base price randomly near the number in your original markup
+  state.basePrice = 67.8 + (Math.random()-0.5)*2;
+  
+  // Load stored data
+  const storedDailyStats = getStoredDailyStats();
+  if (storedDailyStats) {
+    state.dailyStats = storedDailyStats;
+  }
+  
+  const storedPrevClose = getStoredPrevClose();
+  if (storedPrevClose) {
+    state.prevClose = storedPrevClose;
+  }
+  
+  // Pre-generate caches for ranges
+  ['1D','1W','1M','3M','1Y'].forEach(r => loadRangeData(r));
+  
+  // Default chart: candlestick for 3M
+  state.chartType = 'candlestick';
+  
+  // Set UI chart buttons visuals
+  document.getElementById('chartToggleIcon').textContent = 'candlestick_chart';
+
+  renderChart();
+  updateMarketBadge();
+  
+  // Update data every minute (60,000 ms) for demo intraday movement, but only during market hours
+  setInterval(() => {
+    if (isMarketOpen()) {
+      const key = '3M'; // Always use 3 months data
+      const series = state.seriesCache[key] || loadRangeData(key);
+      if (series && series.length) {
+        const last = series[series.length - 1];
+        const change = (Math.random()-0.5) * 0.3; // small price change
+        const newClose = Number(Math.max(0.01, last[4] * (1 + change/100)).toFixed(2));
+        
+        // Create new data point
+        const time = Date.now();
+        const open = last[4];
+        const close = newClose;
+        const high = Math.max(open, close) + Math.random();
+        const low = Math.min(open, close) - Math.random();
+        
+        // Add new point
+        series.push([time, open, high, low, close]);
+        
+        // Remove oldest point to keep data length consistent
+        if (series.length > 200) series.shift();
+        
+        // Store updated data
+        const storedData = getStoredData() || {};
+        storedData[key] = series;
+        storeData(storedData);
+        
+        // Update chart
+        renderChart();
+      }
+    }
+  }, 60000); // 60,000 ms = 1 minute
+}
+
+// Initialize active buttons
+(function initActiveButtons(){
+  document.querySelectorAll('#rangeButtons button').forEach(b => {
+    b.classList.remove('bg-green-900', 'text-white');
+    b.classList.add('bg-green-100', 'text-gray-600');
+  });
+  document.querySelector('#rangeButtons button[data-range="3M"]').classList.add('bg-green-900','text-white');
+})();
+
+// Small UX: highlight button when clicked, ripple-like
+document.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('mousedown', () => btn.classList.add('opacity-80','scale-95'));
+  document.addEventListener('mouseup', () => btn.classList.remove('opacity-80','scale-95'));
+});
+
+// BUY/SELL example interactions
+document.getElementById('buyBtn').addEventListener('click', () => {
+  const amt = prompt('Buy how many shares?','10');
+  if (amt) alert(`Request to BUY ${amt} shares at ${formatCurrency(state.currentPrice)} submitted (demo).`);
+});
+
+document.getElementById('sellBtn').addEventListener('click', () => {
+  const amt = prompt('Sell how many shares?','10');
+  if (amt) alert(`Request to SELL ${amt} shares at ${formatCurrency(state.currentPrice)} submitted (demo).`);
+});
+
+// Initialize the app
+bootstrap();
+</script>
+</body>
+</html>

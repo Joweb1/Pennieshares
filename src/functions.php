@@ -359,6 +359,45 @@ function updateUserPassword($pdo, $userId, $oldPassword, $newPassword) {
     }
 }
 
+function setTransactionPin($pdo, $userId, $newPin, $password) {
+    try {
+        // Verify user's main password first
+        $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $hashedPassword = $stmt->fetchColumn();
+
+        if (!password_verify($password, $hashedPassword)) {
+            return ['success' => false, 'message' => 'Incorrect password.'];
+        }
+
+        // Hash new PIN and update
+        $newHashedPin = password_hash($newPin, PASSWORD_BCRYPT);
+        $stmt = $pdo->prepare("UPDATE users SET transaction_pin = ? WHERE id = ?");
+        $stmt->execute([$newHashedPin, $userId]);
+        return ['success' => true, 'message' => 'Transaction PIN set successfully.'];
+    } catch (PDOException $e) {
+        error_log("Error setting transaction PIN: " . $e->getMessage());
+        return ['success' => false, 'message' => 'A database error occurred.'];
+    }
+}
+
+function verifyTransactionPin($pdo, $userId, $pin) {
+    try {
+        $stmt = $pdo->prepare("SELECT transaction_pin FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $hashedPin = $stmt->fetchColumn();
+
+        if (!$hashedPin) {
+            return false; // No PIN set
+        }
+
+        return password_verify($pin, $hashedPin);
+    } catch (PDOException $e) {
+        error_log("Error verifying transaction PIN: " . $e->getMessage());
+        return false;
+    }
+}
+
 function getUserByIdOrName($pdo, $identifier) {
     if (is_numeric($identifier)) {
         $stmt = $pdo->prepare("SELECT *, is_broker, is_verified FROM users WHERE id = ?");
@@ -378,13 +417,18 @@ function getUserByIdOrName($pdo, $identifier) {
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function transferWalletBalance($pdo, $senderId, $receiverId, $amount) {
+function transferWalletBalance($pdo, $senderId, $receiverId, $amount, $pin) {
     if (!is_numeric($amount) || $amount <= 0) {
         return ['success' => false, 'message' => "Invalid transfer amount."];
     }
 
     if ($senderId == $receiverId) {
         return ['success' => false, 'message' => "Cannot transfer to yourself."];
+    }
+
+    // Verify transaction PIN
+    if (!verifyTransactionPin($pdo, $senderId, $pin)) {
+        return ['success' => false, 'message' => "Invalid transaction PIN."];
     }
 
     try {
@@ -498,6 +542,17 @@ function assignBrokerRole($pdo, $userId) {
         return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
         error_log("Error assigning broker role: " . $e->getMessage());
+        return false;
+    }
+}
+
+function toggleUserEarningsPause($pdo, $userId, $pauseStatus) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET earnings_paused = ? WHERE id = ?");
+        $stmt->execute([$pauseStatus ? 1 : 0, $userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error toggling user earnings pause status: " . $e->getMessage());
         return false;
     }
 }
@@ -891,33 +946,42 @@ function processPendingProfits($pdo) {
             if ($assetStatus && $assetStatus['is_completed'] == 0 && !$is_expired) {
                 // Asset is still active, proceed with crediting
 
-                // Get asset details
-                $assetStmt = $pdo->prepare("SELECT at.name, at.image_link FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.id = ?");
-                $assetStmt->execute([$profit['receiving_asset_id']]);
-                $assetDetails = $assetStmt->fetch(PDO::FETCH_ASSOC);
+                // Get user details to check earnings_paused status
+                $user = getUserByIdOrName($pdo, $profit['user_id']);
 
-                // Credit user wallet
-                $credit_success = creditUserWallet($profit['user_id'], $profit['fractional_amount'], 'Asset Profit', $assetDetails);
+                if ($user && $user['earnings_paused'] == 1) {
+                    // If earnings are paused, redirect to reservation fund
+                    $pdo->prepare("UPDATE company_funds SET total_reservation_fund = total_reservation_fund + ? WHERE id = 1")->execute([$profit['fractional_amount']]);
+                    // Log the event
+                    $logStmt = $pdo->prepare("INSERT INTO payouts (receiving_asset_id, triggering_asset_id, company_fund_type, amount, payout_type, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                    $logStmt->execute([$profit['receiving_asset_id'], 0, 'reservation_fund', $profit['fractional_amount'], 'paused_earnings', date('Y-m-d H:i:s')]);
+                    error_log("User #{$profit['user_id']} earnings paused. Payout redirected to reservation fund.");
+                } else {
+                    // Get asset details
+                    $assetStmt = $pdo->prepare("SELECT at.name, at.image_link FROM assets a JOIN asset_types at ON a.asset_type_id = at.id WHERE a.id = ?");
+                    $assetStmt->execute([$profit['receiving_asset_id']]);
+                    $assetDetails = $assetStmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($credit_success) {
-                    // Also update total_return when profit is actually credited
-                    $updateTotalReturnStmt = $pdo->prepare("UPDATE users SET total_return = total_return + ? WHERE id = ?");
-                    $updateTotalReturnStmt->execute([$profit['fractional_amount'], $profit['user_id']]);
+                    // Credit user wallet
+                    $credit_success = creditUserWallet($profit['user_id'], $profit['fractional_amount'], 'Asset Profit', $assetDetails);
 
-                    // Mark as credited and delete
-                    $deleteStmt = $pdo->prepare("DELETE FROM pending_profits WHERE id = ?");
-                    $deleteStmt->execute([$profit['id']]);
+                    if ($credit_success) {
+                        // Also update total_return when profit is actually credited
+                        $updateTotalReturnStmt = $pdo->prepare("UPDATE users SET total_return = total_return + ? WHERE id = ?");
+                        $updateTotalReturnStmt->execute([$profit['fractional_amount'], $profit['user_id']]);
 
-                    // Send push notification
-                    $user = getUserByIdOrName($pdo, $profit['user_id']);
-                    $payload = [
-                        'title' => 'Profit Credited!',
-                        'body' => 'You have received a profit of ' . number_format($profit['fractional_amount'], 4) . ' from your asset: ' . $assetDetails['name'],
-                        'icon' => 'assets/images/logo.png',
-                    ];
-                    sendPushNotification($profit['user_id'], $payload);
-                    
+                        // Send push notification
+                        $payload = [
+                            'title' => 'Profit Credited!',
+                            'body' => 'You have received a profit of ' . number_format($profit['fractional_amount'], 4) . ' from your asset: ' . $assetDetails['name'],
+                            'icon' => 'assets/images/logo.png',
+                        ];
+                        sendPushNotification($profit['user_id'], $payload);
+                    }
                 }
+                // Mark as credited and delete pending profit regardless of where it went
+                $deleteStmt = $pdo->prepare("DELETE FROM pending_profits WHERE id = ?");
+                $deleteStmt->execute([$profit['id']]);
             } else {
                 // Asset is completed or expired, so we just delete the pending profit
                 $deleteStmt = $pdo->prepare("DELETE FROM pending_profits WHERE id = ?");

@@ -23,11 +23,25 @@
       href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900"
     />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <title>Pennieshares</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
-
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+      tailwind.config = {
+        darkMode: ['class', '[data-theme="dark"]'],
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0c7ff2",
+              "background-light": "#f0f2f5",
+              "background-dark": "#111827",
+            },
+          },
+        },
+      };
+    </script>
     <style>
       /* --- CSS Variables and Theme Setup --- */
       :root {
@@ -75,19 +89,6 @@
         --border-color: var(--border-color-dark);
         --accent-color: var(--accent-color-dark);
         --accent-text: var(--accent-text-dark);
-      }
-
-      body.dark-theme {
-        /* Dark Theme */
-        --bg-primary: #111418;
-        --bg-secondary: #1e2228;
-        --bg-tertiary: #283039;
-        --text-primary: #e4e6eb;
-        --text-secondary: #9cabba;
-        --border-color: #283039;
-        --accent-color: #0c7ff2;
-        --shadow-color: rgba(0, 0, 0, 0.25);
-        --icon-color: #e4e6eb;
       }
 
       body.dark-theme {
@@ -194,82 +195,17 @@
       .header-brand h2 {
         font-size: 1.25rem;
         font-weight: 700;
-        /* display: none; /* Hidden on mobile by default */
       }
 
       .header-nav-desktop {
         display: none; /* Hidden on mobile */
         gap: 2rem;
       }
-      .header-nav-desktop a {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.25rem; /* Space between icon and potential text if added back */
-        font-size: 0.9rem;
-        font-weight: 500;
-      }
 
       .header-actions {
         display: flex;
         align-items: center;
         gap: 1rem;
-      }
-
-      .action-button {
-        background-color: var(--bg-tertiary);
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background-color 0.2s ease;
-      }
-      .action-button:hover {
-        background-color: var(--border-color);
-      }
-      .action-button .icon {
-        color: var(--text-secondary);
-      }
-
-      .notification-bell-container {
-        position: relative;
-      }
-
-      .notification-badge {
-        position: absolute;
-        top: 50%;
-        right: 10px; /* Adjusted to be next to the text */
-        transform: translateY(-50%);
-        background-color: red;
-        color: white;
-        border-radius: 50%;
-        padding: 2px 6px;
-        font-size: 0.7em;
-        min-width: 20px;
-        text-align: center;
-        display: none; /* Hidden by default */
-      }
-
-      .user-profile {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-      }
-      .user-profile-photo {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-size: cover;
-        background-position: center;
-        border: 2px solid var(--border-color);
-      }
-      .user-profile-name {
-        font-weight: 500;
-        font-size: 0.9rem;
-        /* display: none; /* Hidden by default */
       }
 
       #burger-menu {
@@ -337,14 +273,6 @@
         background-color: var(--bg-tertiary);
         color: var(--accent-color);
       }
-      .nav-mobile-links .icon {
-        color: var(--text-secondary);
-        transition: color 0.2s ease;
-      }
-      .nav-mobile-links a:hover .icon,
-      .nav-mobile-links a.active .icon {
-        color: var(--accent-color);
-      }
 
       .nav-overlay {
         position: fixed;
@@ -363,15 +291,6 @@
         visibility: visible;
       }
 
-      /* --- Theme Toggle Icons --- */
-      #theme-toggle .sun-icon,
-      html[data-theme="dark"] #theme-toggle .moon-icon {
-        display: none;
-      }
-      html[data-theme="dark"] #theme-toggle .sun-icon {
-        display: block;
-      }
-
       /* --- Desktop & Tablet Styles --- */
       @media (min-width: 768px) {
         .main-header {
@@ -388,9 +307,6 @@
         }
         #burger-menu {
           display: none;
-        }
-        .user-profile-name {
-          display: block;
         }
         .main-content {
           padding: 2.5rem;
@@ -464,10 +380,8 @@
           <a href="broker_verify"><span class="material-icons-outlined">verified_user</span></a>
           <?php endif; ?>
         </nav>
-        </nav>
 
         <div class="header-actions">
-          </button>
           <button id="theme-toggle" class="action-button" aria-label="Toggle theme" style="display: none;">
              <svg class="icon moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
              <svg class="icon sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -479,13 +393,9 @@
              <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
              <span class="notification-badge" id="notification-badge"></span>
           </a>
-          
         </div>
       </header>
 
-      </main>
-
-      <!-- Main Content Area - This is where the page-specific content will be inserted -->
       <main class="main-content">
         <div class="content-wrapper">
 
@@ -496,10 +406,8 @@
 
             swReg.pushManager.getSubscription().then(function(subscription) {
                 if (subscription === null) {
-                    // User is not subscribed
                     subscribeUser(swReg);
                 } else {
-                    // User is already subscribed
                     console.log('User is already subscribed.');
                 }
             });

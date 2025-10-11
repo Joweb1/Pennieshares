@@ -10,8 +10,12 @@ $fullname = $loggedInUser['fullname'];
 $email = $loggedInUser['email'];
 $phone = $loggedInUser['phone'];
 
-$errors = [];
-$success_message = '';
+$profile_errors = [];
+$profile_success_message = '';
+$password_errors = [];
+$password_success_message = '';
+$pin_errors = [];
+$pin_success_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Update Full Name and Phone Number
@@ -19,22 +23,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $newPhone = trim($_POST['phone'] ?? '');
 
     if (empty($newFullname)) {
-        $errors[] = "Full name cannot be empty.";
+        $profile_errors[] = "Full name cannot be empty.";
     }
     if (empty($newPhone)) {
-        $errors[] = "Phone number cannot be empty.";
+        $profile_errors[] = "Phone number cannot be empty.";
     }
 
-    if (empty($errors)) {
+    if (empty($profile_errors)) {
         if (updateUserProfile($pdo, $userId, $newFullname, $newPhone)) {
             // Update session data immediately after successful update
             $_SESSION['user']['fullname'] = $newFullname;
             $_SESSION['user']['phone'] = $newPhone;
             $fullname = $newFullname;
             $phone = $newPhone;
-            $success_message = "Profile updated successfully.";
+            $profile_success_message = "Profile updated successfully.";
         } else {
-            $errors[] = "Failed to update profile.";
+            $profile_errors[] = "Failed to update profile.";
         }
     }
 
@@ -44,20 +48,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!empty($oldPassword) || !empty($newPassword)) {
         if (empty($oldPassword)) {
-            $errors[] = "Old password is required to change password.";
+            $password_errors[] = "Old password is required to change password.";
         }
         if (empty($newPassword)) {
-            $errors[] = "New password cannot be empty.";
+            $password_errors[] = "New password cannot be empty.";
         }
         if (strlen($newPassword) < 8) {
-            $errors[] = "New password must be at least 8 characters long.";
+            $password_errors[] = "New password must be at least 8 characters long.";
         }
 
-        if (empty($errors)) {
+        if (empty($password_errors)) {
             if (updateUserPassword($pdo, $userId, $oldPassword, $newPassword)) {
-                $success_message = "Password updated successfully.";
+                $password_success_message = "Password updated successfully.";
             } else {
-                $errors[] = "Failed to update password. Check your old password.";
+                $password_errors[] = "Failed to update password. Check your old password.";
+            }
+        }
+    }
+
+    // Transaction PIN Change
+    $newPin = $_POST['new_pin'] ?? '';
+    $confirmPin = $_POST['confirm_pin'] ?? '';
+    $currentPasswordForPin = $_POST['current_password_for_pin'] ?? '';
+
+    if (!empty($newPin) || !empty($confirmPin) || !empty($currentPasswordForPin)) {
+        if (empty($newPin) || empty($confirmPin) || empty($currentPasswordForPin)) {
+            $pin_errors[] = "All PIN fields and current password are required to set/change PIN.";
+        }
+        if ($newPin !== $confirmPin) {
+            $pin_errors[] = "New PIN and confirm PIN do not match.";
+        }
+        if (!preg_match('/^\d{4}$/', $newPin)) {
+            $pin_errors[] = "Transaction PIN must be a 4-digit number.";
+        }
+
+        if (empty($pin_errors)) {
+            $pinResult = setTransactionPin($pdo, $userId, $newPin, $currentPasswordForPin);
+            if ($pinResult['success']) {
+                $pin_success_message = $pinResult['message'];
+            } else {
+                $pin_errors[] = $pinResult['message'];
             }
         }
     }
@@ -227,13 +257,31 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         </div>
 
         <form class="form-container" method="POST">
-            <?php if (!empty($errors)): ?>
-                <?php foreach ($errors as $error): ?>
+            <?php if (!empty($profile_errors)): ?>
+                <?php foreach ($profile_errors as $error): ?>
                     <p class="message error"><?php echo htmlspecialchars($error); ?></p>
                 <?php endforeach; ?>
             <?php endif; ?>
-            <?php if (!empty($success_message)): ?>
-                <p class="message success"><?php echo htmlspecialchars($success_message); ?></p>
+            <?php if (!empty($profile_success_message)): ?>
+                <p class="message success"><?php echo htmlspecialchars($profile_success_message); ?></p>
+            <?php endif; ?>
+
+            <?php if (!empty($password_errors)): ?>
+                <?php foreach ($password_errors as $error): ?>
+                    <p class="message error"><?php echo htmlspecialchars($error); ?></p>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            <?php if (!empty($password_success_message)): ?>
+                <p class="message success"><?php echo htmlspecialchars($password_success_message); ?></p>
+            <?php endif; ?>
+
+            <?php if (!empty($pin_errors)): ?>
+                <?php foreach ($pin_errors as $error): ?>
+                    <p class="message error"><?php echo htmlspecialchars($error); ?></p>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            <?php if (!empty($pin_success_message)): ?>
+                <p class="message success"><?php echo htmlspecialchars($pin_success_message); ?></p>
             <?php endif; ?>
 
             <div>
@@ -263,6 +311,25 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             <div>
                 <label class="form-label" for="new_password">New Password</label>
                 <input class="form-input" id="new_password" name="new_password" type="password" placeholder="Enter your new password"/>
+            </div>
+
+            <div class="password-section">
+                 <h3 class="password-section-title">Set Transaction PIN</h3>
+            </div>
+
+            <div>
+                <label class="form-label" for="new_pin">New Transaction PIN</label>
+                <input class="form-input" id="new_pin" name="new_pin" type="password" placeholder="Enter a 4-digit PIN" maxlength="4" pattern="\d{4}" title="Please enter a 4-digit PIN"/>
+            </div>
+
+            <div>
+                <label class="form-label" for="confirm_pin">Confirm Transaction PIN</label>
+                <input class="form-input" id="confirm_pin" name="confirm_pin" type="password" placeholder="Confirm your 4-digit PIN" maxlength="4" pattern="\d{4}" title="Please confirm your 4-digit PIN"/>
+            </div>
+
+            <div>
+                <label class="form-label" for="current_password_for_pin">Current Password (to confirm PIN change)</label>
+                <input class="form-input" id="current_password_for_pin" name="current_password_for_pin" type="password" placeholder="Enter your current password"/>
             </div>
 
             <div class="button-wrapper">

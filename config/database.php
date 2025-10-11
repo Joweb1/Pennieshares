@@ -61,6 +61,12 @@ try {
     if (!in_array('last_performance_update', $user_columns)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN last_performance_update DATE");
     }
+    if (!in_array('transaction_pin', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN transaction_pin TEXT");
+    }
+    if (!in_array('earnings_paused', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN earnings_paused INTEGER DEFAULT 0");
+    }
 
     // --- Create Payment Proofs Table ---
     $pdo->exec("CREATE TABLE IF NOT EXISTS payment_proofs (
@@ -89,6 +95,9 @@ try {
     if (!in_array('image_link', $asset_type_columns)) {
         $pdo->exec("ALTER TABLE asset_types ADD COLUMN image_link TEXT");
     }
+    if (!in_array('dividing_price', $asset_type_columns)) {
+        $pdo->exec("ALTER TABLE asset_types ADD COLUMN dividing_price DECIMAL(10, 2)");
+    }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +110,7 @@ try {
         total_shared_received DECIMAL(10, 2) DEFAULT 0.00,
         is_completed INTEGER DEFAULT 0,
         is_manually_expired INTEGER DEFAULT 0,
+        is_sold INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         expires_at TEXT,
         completed_at TEXT,
@@ -110,6 +120,12 @@ try {
     );");
     
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_assets_active_for_parenting ON assets (is_completed, is_manually_expired, children_count, created_at, id) WHERE is_completed = 0 AND is_manually_expired = 0 AND children_count < 3;");
+
+    // --- Add columns to assets table if they don't exist ---
+    $asset_columns = $pdo->query("PRAGMA table_info(assets)")->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('is_sold', $asset_columns)) {
+        $pdo->exec("ALTER TABLE assets ADD COLUMN is_sold INTEGER DEFAULT 0");
+    }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS payouts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,6 +204,26 @@ try {
         updated_at DATETIME,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )");
+
+    // --- Create Asset Type Stats Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS asset_type_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        asset_type_id INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL,
+        open_price DECIMAL(10, 2) NOT NULL,
+        high_price DECIMAL(10, 2) NOT NULL,
+        low_price DECIMAL(10, 2) NOT NULL,
+        close_price DECIMAL(10, 2) NOT NULL,
+        volume INTEGER,
+        FOREIGN KEY(asset_type_id) REFERENCES asset_types(id) ON DELETE CASCADE
+    )");
+
+    // --- Create Settings Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )");
+    $pdo->exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('market_status', 'closed')");
 
     // --- Create Expo Push Tokens Table ---
     // --- Create Expo Push Tokens Table ---

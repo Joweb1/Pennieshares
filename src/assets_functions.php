@@ -40,8 +40,8 @@ function checkAndMarkExpiredAssets($pdo) {
                 $user['username'],
                 $asset['asset_name'],
                 'Expired',
-                "Your asset '{$asset['asset_name']}' has reached its expiration date and is no longer active." .
-                "\nAsset ID: #{$asset['id']}"
+                "Your asset '{$asset['asset_name']}' has reached its expiration date and is no longer active."
+                . "\nAsset ID: #{$asset['id']}"
             );
             sendEmail($user['email'], $user['username'], "Asset Expired - Pennieshares", $emailBody);
         }
@@ -50,22 +50,25 @@ function checkAndMarkExpiredAssets($pdo) {
     return count($expiredAssets); // Returns the number of assets newly marked as expired
 }
 
-
-// --- Core Logic Functions ---
 function findEligibleParent($pdo) {
     $now = date('Y-m-d H:i:s');
-    $stmt = $pdo->prepare("SELECT a.id, a.generation FROM assets a
-                          WHERE a.is_completed = 0 
-                          AND a.is_manually_expired = 0 -- Added this check
-                          AND (a.expires_at IS NULL OR a.expires_at > :now)
-                          AND a.children_count < :children_per_asset
-                          ORDER BY datetime(a.created_at) ASC, a.id ASC 
-                          LIMIT 1");
-    $stmt->bindValue(':now', $now, PDO::PARAM_STR);
-    $stmt->bindValue(':children_per_asset', CHILDREN_PER_ASSET, PDO::PARAM_INT);
-    $stmt->execute();
+    // Find an active asset that is not completed, not manually expired,
+    // not expired by date, and has less than CHILDREN_PER_ASSET children.
+    // Order by created_at ASC to prioritize older assets for parenting.
+    $stmt = $pdo->prepare(
+        "SELECT id, generation\n        FROM assets\n        WHERE is_completed = 0\n          AND is_manually_expired = 0\n          AND (expires_at IS NULL OR expires_at > :now)\n          AND children_count < :children_per_asset\n        ORDER BY created_at ASC\n        LIMIT 1"
+    );
+    $stmt->execute([
+        ':now' => $now,
+        ':children_per_asset' => CHILDREN_PER_ASSET
+    ]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
+
+
+// --- Core Logic Functions ---
+
+
 
 function getAncestorsForPayout($pdo, $childAssetId, $maxDepth = MAX_GENERATIONS_PAYOUT_DEPTH) {
     $ancestors = []; 
@@ -357,6 +360,32 @@ function getUserAssets($pdo, $userId) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function getGroupedUserAssets($pdo, $userId) {
+    $now = date('Y-m-d H:i:s');
+    $stmt = $pdo->prepare("
+        SELECT 
+            at.id as asset_type_id,
+            at.name as asset_type_name,
+            at.image_link,
+            at.price as original_price,
+            at.payout_cap as type_payout_cap,
+            at.dividing_price,
+            COUNT(a.id) as total_assets_count,
+            SUM(CASE WHEN a.is_completed = 1 THEN 1 ELSE 0 END) as completed_assets_count,
+            SUM(CASE WHEN a.is_sold = 1 THEN 1 ELSE 0 END) as sold_assets_count,
+            SUM(a.total_generational_received) as total_generational_received_grouped,
+            SUM(a.total_shared_received) as total_shared_received_grouped,
+            SUM(a.total_generational_received + a.total_shared_received) as total_earned_grouped
+        FROM assets a
+        JOIN asset_types at ON a.asset_type_id = at.id
+        WHERE a.user_id = :user_id
+        GROUP BY at.id, at.name, at.image_link, at.price, at.payout_cap, at.dividing_price
+        ORDER BY at.name ASC
+    ");
+    $stmt->execute([':user_id' => $userId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function getUserPayouts($pdo, $userId) {
     $stmt = $pdo->prepare("
         SELECT p.*, ta.id as triggering_asset_display_id, tu.name as triggering_username
@@ -391,36 +420,244 @@ function getOverallIncomeStats($pdo) {
 
 function getAssetStatusDistribution($pdo) {
     $now = date('Y-m-d H:i:s');
-    // This query is a bit complex to correctly categorize expired vs active
     $stmt = $pdo->prepare("
         SELECT 
-            SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_count,
-            SUM(CASE WHEN is_completed = 0 AND (is_manually_expired = 1 OR (expires_at IS NOT NULL AND expires_at < :now)) THEN 1 ELSE 0 END) as expired_count,
-            SUM(CASE WHEN is_completed = 0 AND is_manually_expired = 0 AND (expires_at IS NULL OR expires_at >= :now) THEN 1 ELSE 0 END) as active_count
+            SUM(CASE WHEN is_sold = 1 THEN 1 ELSE 0 END) as sold_count,
+            SUM(CASE WHEN is_completed = 1 AND is_sold = 0 THEN 1 ELSE 0 END) as completed_count,
+            SUM(CASE WHEN is_completed = 0 AND is_sold = 0 AND (is_manually_expired = 1 OR (expires_at IS NOT NULL AND expires_at < :now)) THEN 1 ELSE 0 END) as expired_count,
+            SUM(CASE WHEN is_completed = 0 AND is_sold = 0 AND is_manually_expired = 0 AND (expires_at IS NULL OR expires_at >= :now) THEN 1 ELSE 0 END) as active_count
         FROM assets
     ");
     $stmt->execute([':now' => $now]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function getAssetBranding($assetTypeId) {
+function getAssetBranding($asset_type_id) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT name, image_link, category FROM asset_types WHERE id = ?");
-    $stmt->execute([$assetTypeId]);
-    $assetData = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT name, image_link FROM asset_types WHERE id = ?");
+    $stmt->execute([$asset_type_id]);
+    $asset = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($assetData) {
-        return ['name' => $assetData['name'], 'image' => $assetData['image_link'] ?? '', 'category' => $assetData['category'] ?? 'General'];
-    } else {
-        return ['name' => 'Unknown Asset', 'image' => '', 'category' => '' ];
+    return [
+        'name' => $asset['name'] ?? 'Unknown Asset',
+        'image' => $asset['image_link'] ?? null
+    ];
+}
+
+function sellCompletedAssets($pdo, $userId, $assetTypeId, $quantity, $pin) {
+    if (!verifyTransactionPin($pdo, $userId, $pin)) {
+        return ['success' => false, 'message' => 'Invalid transaction PIN.'];
     }
+
+    try {
+        $pdo->beginTransaction();
+
+        // Check for available completed assets
+        $stmt = $pdo->prepare("SELECT id FROM assets WHERE user_id = ? AND asset_type_id = ? AND is_completed = 1 AND is_sold = 0");
+        $stmt->execute([$userId, $assetTypeId]);
+        $completedAssets = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        if (count($completedAssets) < $quantity) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Insufficient completed assets to sell.'];
+        }
+
+        // Get asset type details
+        $stmt = $pdo->prepare("SELECT price FROM asset_types WHERE id = ?");
+        $stmt->execute([$assetTypeId]);
+        $assetPrice = $stmt->fetchColumn();
+
+        if (!$assetPrice) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Invalid asset type.'];
+        }
+
+        $sellingFee = 0.1799;
+        $amountPerAsset = $assetPrice * (1 - $sellingFee);
+        $totalAmount = $amountPerAsset * $quantity;
+
+        // Mark assets as sold
+        $assetsToSell = array_slice($completedAssets, 0, $quantity);
+        $placeholders = rtrim(str_repeat('?,', count($assetsToSell)), ',');
+        $stmt = $pdo->prepare("UPDATE assets SET is_sold = 1 WHERE id IN ($placeholders)");
+        $stmt->execute($assetsToSell);
+
+        // Credit user wallet
+        $assetName = getAssetBranding($assetTypeId)['name'];
+        $description = "Sold {$quantity} x " . $assetName;
+        creditUserWallet($userId, $totalAmount, $description);
+
+        $pdo->commit();
+
+        // Send notifications
+        // $user = getUserByIdOrName($pdo, $userId);
+        // sendNotificationEmail(...) - Implement this later
+        // sendPushNotification(...) - Implement this later
+
+        return ['success' => true, 'message' => "Successfully sold {$quantity} assets."];
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        return ['success' => false, 'message' => 'An error occurred during the selling process.'];
+    }
+}
+
+
+/**
+ * Generates 3 months of mock OHLC data for a given asset type.
+ *
+ * @param PDO $pdo The PDO database connection.
+ * @param int $assetTypeId The ID of the asset type.
+ * @param float $initialDividingPrice The initial dividing price to base the mock data on.
+ */
+function generateInitialAssetTypeStats($pdo, $assetTypeId, $initialDividingPrice) {
+    $now = new DateTime();
+    $interval = new DateInterval('P3M'); // 3 months
+    $startDate = (clone $now)->sub($interval);
+
+    $currentPrice = $initialDividingPrice;
+
+    // Generate daily data for 3 months
+    for ($i = 0; $i < 90; $i++) { // Approximately 90 days for 3 months
+        $date = (clone $startDate)->add(new DateInterval("P{$i}D"));
+        $timestamp = $date->getTimestamp() * 1000; // Highcharts expects milliseconds
+
+        // Simulate price fluctuation around the current price
+        $open = $currentPrice;
+        $close = $currentPrice + (mt_rand(-20, 20) / 100) * $currentPrice; // +/- 20% of current price
+        $high = max($open, $close) + (mt_rand(0, 10) / 100) * $currentPrice;
+        $low = min($open, $close) - (mt_rand(0, 10) / 100) * $currentPrice;
+
+        // Ensure prices stay within bounds (30-200)
+        $open = max(30.0, min(200.0, $open));
+        $close = max(30.0, min(200.0, $close));
+        $high = max(30.0, min(200.0, $high));
+        $low = max(30.0, min(200.0, $low));
+
+        // Ensure consistency
+        $high = max($open, $close, $high);
+        $low = min($open, $close, $low);
+
+        $volume = mt_rand(1000, 100000); // Random volume
+
+        $stmt = $pdo->prepare("INSERT INTO asset_type_stats (asset_type_id, timestamp, open_price, high_price, low_price, close_price, volume) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$assetTypeId, $timestamp, $open, $high, $low, $close, $volume]);
+
+        $currentPrice = $close; // Next day's price starts near this close
+    }
+}
+
+/**
+ * Simulates a minute-by-minute price change for the dividing price.
+ *
+ * @param float $currentDividingPrice The current dividing price.
+ * @return float The new simulated dividing price.
+ */
+function simulateMinutePriceChange($currentDividingPrice) {
+    $changePercentage = mt_rand(5, 40) / 1000; // 0.5% to 4% change
+    $changeDirection = (mt_rand(0, 1) == 1) ? 1 : -1; // +1 or -1
+    $changeAmount = $currentDividingPrice * $changePercentage * $changeDirection;
+
+    $newDividingPrice = $currentDividingPrice + $changeAmount;
+
+    // Ensure price stays within bounds (30-200)
+    $newDividingPrice = max(30.0, min(200.0, $newDividingPrice));
+
+    return round($newDividingPrice, 2); // Round to 2 decimal places
+}
+
+/**
+ * Fetches historical OHLC data for a given asset type and range.
+ *
+ * @param PDO $pdo The PDO database connection.
+ * @param int $assetTypeId The ID of the asset type.
+ * @param string $range The desired data range (e.g., '1D', '1W', '1M', '3M', '1Y').
+ * @return array An array of OHLC data in Highcharts format [[timestamp, open, high, low, close]].
+ */
+function getAssetTypeStats($pdo, $assetTypeId, $range) {
+    $now = new DateTime();
+    $startDate = null;
+    $interval = 'minute'; // Default to minute for 1D
+
+    switch ($range) {
+        case '1D':
+            $startDate = (clone $now)->sub(new DateInterval('PT24H')); // Last 24 hours
+            break;
+        case '1W':
+            $startDate = (clone $now)->sub(new DateInterval('P7D'));
+            $interval = 'day'; // Aggregate to daily for longer ranges
+            break;
+        case '1M':
+            $startDate = (clone $now)->sub(new DateInterval('P1M'));
+            $interval = 'day';
+            break;
+        case '3M':
+            $startDate = (clone $now)->sub(new DateInterval('P3M'));
+            $interval = 'day';
+            break;
+        case '1Y':
+            $startDate = (clone $now)->sub(new DateInterval('P1Y'));
+            $interval = 'day';
+            break;
+        default:
+            $startDate = (clone $now)->sub(new DateInterval('P3M')); // Default to 3 months
+            $interval = 'day';
+            break;
+    }
+
+    $startTimestamp = $startDate->getTimestamp() * 1000;
+
+    $data = [];
+    if ($interval === 'minute') {
+        $stmt = $pdo->prepare("SELECT timestamp, open_price, high_price, low_price, close_price FROM asset_type_stats WHERE asset_type_id = ? AND timestamp >= ? ORDER BY timestamp ASC");
+        $stmt->execute([$assetTypeId, $startTimestamp]);
+        $data = $stmt->fetchAll(PDO::FETCH_NUM);
+    } else {
+        // Aggregate to daily OHLC for longer ranges
+        // This is a simplified aggregation. For true OHLC aggregation,
+        // you'd need more complex SQL or PHP logic to find the first open, max high, min low, and last close for each day.
+        // For now, we'll just fetch daily close prices for simplicity in longer ranges.
+        $stmt = $pdo->prepare("
+            SELECT
+                CAST(strftime('%s', date(timestamp / 1000, 'unixepoch')) * 1000 AS INTEGER) as day_timestamp,
+                AVG(open_price) as open_p,
+                MAX(high_price) as high_p,
+                MIN(low_price) as low_p,
+                AVG(close_price) as close_p
+            FROM asset_type_stats
+            WHERE asset_type_id = ? AND timestamp >= ?
+            GROUP BY day_timestamp
+            ORDER BY day_timestamp ASC
+        ");
+        $stmt->execute([$assetTypeId, $startTimestamp]);
+        $rawDailyData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rawDailyData as $row) {
+            $data[] = [
+                (int)$row['day_timestamp'],
+                (float)$row['open_p'],
+                (float)$row['high_p'],
+                (float)$row['low_p'],
+                (float)$row['close_p']
+            ];
+        }
+    }
+
+    return $data;
 }
 
 function addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLink = null, $category = null) {
     try {
         $reservationContribution = $price - FIXED_ALLOCATIONS_TOTAL;
-        $stmt = $pdo->prepare("INSERT INTO asset_types (name, price, payout_cap, duration_months, reservation_fund_contribution, image_link, category) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $price, $payoutCap, $durationMonths, $reservationContribution, $imageLink, $category]);
+        $dividingPrice = 55.00; // Set initial dividing price as per requirement
+
+        $stmt = $pdo->prepare("INSERT INTO asset_types (name, price, payout_cap, duration_months, reservation_fund_contribution, image_link, category, dividing_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $price, $payoutCap, $durationMonths, $reservationContribution, $imageLink, $category, $dividingPrice]);
+        $assetTypeId = $pdo->lastInsertId();
+
+        // Generate initial historical data for the new asset type
+        generateInitialAssetTypeStats($pdo, $assetTypeId, $dividingPrice);
+
         return true;
     } catch (PDOException $e) {
         error_log("Error adding asset type: " . $e->getMessage());
@@ -428,11 +665,11 @@ function addAssetType($pdo, $name, $price, $payoutCap, $durationMonths, $imageLi
     }
 }
 
-function updateAssetType($pdo, $assetTypeId, $name, $price, $payoutCap, $durationMonths, $imageLink = null, $category = null) {
+function updateAssetType($pdo, $assetTypeId, $name, $price, $payoutCap, $durationMonths, $imageLink = null, $category = null, $dividingPrice = null) {
     try {
         $reservationContribution = $price - FIXED_ALLOCATIONS_TOTAL;
-        $sql = "UPDATE asset_types SET name = ?, price = ?, payout_cap = ?, duration_months = ?, reservation_fund_contribution = ?, category = ?";
-        $params = [$name, $price, $payoutCap, $durationMonths, $reservationContribution, $category];
+        $sql = "UPDATE asset_types SET name = ?, price = ?, payout_cap = ?, duration_months = ?, reservation_fund_contribution = ?, category = ?, dividing_price = ?";
+        $params = [$name, $price, $payoutCap, $durationMonths, $reservationContribution, $category, $dividingPrice];
 
         if ($imageLink) {
             $sql .= ", image_link = ?";
@@ -481,8 +718,8 @@ function markAssetCompleted($pdo, $assetId) {
                         $user['username'],
                         $asset['asset_name'],
                         'Completed',
-                        "Congratulations! Your asset '{$asset['asset_name']}' has reached its payout cap and is now completed." .
-                        "\nAsset ID: #{$assetId}"
+                        "Congratulations! Your asset '{$asset['asset_name']}' has reached its payout cap and is now completed."
+                        . "\nAsset ID: #{$assetId}"
                     );
                     sendEmail($user['email'], $user['username'], "Asset Completed - Pennieshares", $emailBody);
                     */
@@ -495,6 +732,65 @@ function markAssetCompleted($pdo, $assetId) {
         return false;
     }
 }
+
+function sellCompletedAsset($pdo, $userId, $assetId, $pin) {
+    global $pdo; // Ensure $pdo is accessible
+
+    // 1. Verify transaction PIN
+    if (!verifyTransactionPin($pdo, $userId, $pin)) {
+        return ['success' => false, 'message' => 'Invalid transaction PIN.'];
+    }
+
+    try {
+        // 2. Verify asset ownership and status
+        $stmt = $pdo->prepare(
+            "SELECT a.id, a.user_id, a.is_completed, a.is_sold, at.price as original_price, at.name as asset_name"
+            . " FROM assets a"
+            . " JOIN asset_types at ON a.asset_type_id = at.id"
+            . " WHERE a.id = ? AND a.user_id = ?"
+        );
+        $stmt->execute([$assetId, $userId]);
+        $asset = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$asset) {
+            return ['success' => false, 'message' => 'Asset not found or does not belong to you.'];
+        }
+        if ($asset['is_completed'] == 0) {
+            return ['success' => false, 'message' => 'Asset is not completed yet.'];
+        }
+        if ($asset['is_sold'] == 1) {
+            return ['success' => false, 'message' => 'Asset has already been sold.'];
+        }
+
+        // 3. Calculate sale price (70% of original)
+        $salePrice = $asset['original_price'] * 0.70;
+
+        // 4. Credit user's wallet
+        $creditResult = creditUserWallet($userId, $salePrice, "Sale of completed asset: {$asset['asset_name']}");
+
+        if (!$creditResult) {
+            return ['success' => false, 'message' => 'Failed to credit wallet.'];
+        }
+
+        // 5. Mark asset as sold
+        $updateStmt = $pdo->prepare("UPDATE assets SET is_sold = 1 WHERE id = ?");
+        $updateStmt->execute([$assetId]);
+
+        // Optionally, you might want to delete the asset instead of just marking it as sold
+        // $deleteStmt = $pdo->prepare("DELETE FROM assets WHERE id = ?");
+        // $deleteStmt->execute([$assetId]);
+
+        return ['success' => true, 'message' => "Asset '{$asset['asset_name']}' sold successfully for SV" . number_format($salePrice, 2) . "."];
+
+    } catch (PDOException $e) {
+        error_log("Error selling completed asset: " . $e->getMessage());
+        return ['success' => false, 'message' => 'A database error occurred during asset sale.'];
+    }
+}
+
+
+
+
 
 function deleteAssetType($pdo, $assetTypeId) {
     try {
@@ -562,4 +858,26 @@ function getTotalAssetCount($pdo, $searchQuery = '') {
     return $stmt->fetchColumn();
 }
 
-?>
+function generateStatsForExistingAssets($pdo) {
+    $assetTypes = getAssetTypes($pdo);
+    $generatedCount = 0;
+    foreach ($assetTypes as $assetType) {
+        // Check if stats already exist
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM asset_type_stats WHERE asset_type_id = ?");
+        $stmt->execute([$assetType['id']]);
+        if ($stmt->fetchColumn() == 0) {
+            // No stats, so generate them
+            $initialDividingPrice = mt_rand(4000, 10000) / 100; // Random float between 40.00 and 100.00
+            
+            // Update the asset_type with this new dividing price
+            $updateStmt = $pdo->prepare("UPDATE asset_types SET dividing_price = ? WHERE id = ?");
+            $updateStmt->execute([$initialDividingPrice, $assetType['id']]);
+
+            // Generate the historical data
+            generateInitialAssetTypeStats($pdo, $assetType['id'], $initialDividingPrice);
+            $generatedCount++;
+        }
+    }
+    return $generatedCount;
+}
+
