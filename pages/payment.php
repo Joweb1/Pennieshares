@@ -1,4 +1,9 @@
 <?php
+require_once __DIR__ . '/../vendor/autoload.php';
+
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->load();
+
 require_once __DIR__ . '/../src/functions.php';
 // check_auth();
 
@@ -86,6 +91,7 @@ if (isset($_GET['upload_success'])) {
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;600;700&family=Noto+Sans:wght@400;500;700;900">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
     <style>
         :root {
             --primary-color: #0c7ff2;
@@ -560,7 +566,7 @@ if (isset($_GET['upload_success'])) {
         }
 
         @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}'''
             40% {transform: translateY(-20px);}
             60% {transform: translateY(-10px);}
         }
@@ -889,9 +895,25 @@ if (isset($_GET['upload_success'])) {
             prevStepPaystack.addEventListener('click', () => goToStep(1));
 
             payWithPaystackBtn.addEventListener('click', () => {
-                // Redirect to Paystack payment page
-                window.location.href = 'paystack_payment';
+                payWithPaystack();
             });
+
+            function payWithPaystack() {
+                const handler = PaystackPop.setup({
+                    key: '<?php echo $_ENV["PAYSTACK_PUBLIC_KEY"]; ?>',
+                    email: '<?php echo $user["email"]; ?>',
+                    amount: 1000 * 100, // in kobo
+                    currency: 'NGN',
+                    ref: 'paystack_' + Math.floor((Math.random() * 1000000000) + 1),
+                    callback: function(response) {
+                        window.location = 'payment_callback.php?reference=' + response.reference;
+                    },
+                    onClose: function() {
+                        // user closed popup
+                    }
+                });
+                handler.openIframe();
+            }
 
 
             browseBtn.addEventListener('click', () => fileInput.click());
