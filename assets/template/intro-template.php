@@ -341,11 +341,11 @@
           <li><a href="settings"><span class="material-icons-outlined">settings</span>Settings</a></li>
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <li><a href="admin"><span class="material-icons-outlined">admin_panel_settings</span>Admin Panel</a></li>
-          <li><a href="admin_verify"><span class="material-icons-outlined">verified_user</span>Verify Users</a></li>
+          
           <li><a href="admin_kyc"><span class="material-icons-outlined">badge</span>KYC</a></li>
           <?php endif; ?>
           <?php if (isset($_SESSION['user']) && isset($_SESSION['user']['is_broker']) && $_SESSION['user']['is_broker'] == 1): ?>
-          <li><a href="broker_verify"><span class="material-icons-outlined">verified_user</span>Verify Users</a></li>
+          
           <?php endif; ?>
         </ul>
       </nav>
@@ -373,11 +373,11 @@
           <a href="profile_view"><span class="material-icons-outlined">person</span></a>
           <?php if (isset($_SESSION['user']) && $_SESSION['user']['is_admin'] == 1): ?>
           <a href="admin"><span class="material-icons-outlined">admin_panel_settings</span></a>
-          <a href="admin_verify"><span class="material-icons-outlined">verified_user</span></a>
+          
           <a href="admin_kyc"><span class="material-icons-outlined">badge</span></a>
           <?php endif; ?>
           <?php if (isset($_SESSION['user']) && isset($_SESSION['user']['is_broker']) && $_SESSION['user']['is_broker'] == 1): ?>
-          <a href="broker_verify"><span class="material-icons-outlined">verified_user</span></a>
+          
           <?php endif; ?>
         </nav>
 

@@ -337,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
 <div class="container">
   <header>
-    <img alt="Pennieshares Logo" src="assets/images/logo.png"/>
+    <img alt="Pennieshares Logo" src="<?= BASE_URL ?>/assets/images/logo.png"/>
     <h1>Broker Application Form</h1>
     <div></div>
   </header>

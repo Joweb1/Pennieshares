@@ -255,7 +255,7 @@
         <div class="market-grid" id="market-grid">
         <?php foreach ($assetTypes as $asset): ?>
           <a href="buy_shares?asset_type_id=<?php echo $asset['id']; ?>" class="stock-card" data-category="<?php echo $asset['category'] ?? 'General'; ?>">
-            <div class="stock-image" style='background-image: url("<?php echo htmlspecialchars($asset['image_link']); ?>");'></div>
+            <div class="stock-image" style='background-image: url("<?= BASE_URL ?>/<?= htmlspecialchars($asset['image_link']) ?>");'></div>
             <div class="stock-info">
               <p class="name"><?php echo htmlspecialchars($asset['name']); ?></p>
               <p class="category"><?php echo $asset['category'] ?? 'General'; ?></p>

@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
 
   <div class="card">
-    <img src="assets/images/logo.png" class="illustration" alt="Forgot Password Illustration" />
+    <img src="<?= BASE_URL ?>/assets/images/logo.png" class="illustration" alt="Forgot Password Illustration" />
 
     <h1 class="title">Forgot Password</h1>
     <p class="subtitle">Enter your email to receive a reset code</p>

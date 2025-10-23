@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
 
   <div class="login-card">
-    <img src="assets/images/logo.png" class="illustration" alt="Login Illustration" />
+    <img src="<?= BASE_URL ?>/assets/images/logo.png" class="illustration" alt="Login Illustration" />
 
     <h1 class="login-title">Welcome Back</h1>
     <p class="login-subtitle">Login to your account</p>

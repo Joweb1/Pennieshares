@@ -277,7 +277,7 @@ $partnercode = $_GET['partnercode'] ?? '';
 <body>
 
   <div class="signup-card">
-    <img src="assets/images/logo.png" class="illustration" alt="Signup Illustration" />
+    <img src="<?= BASE_URL ?>/assets/images/logo.png" class="illustration" alt="Signup Illustration" />
 
     <h1 class="signup-title">Create Account</h1>
     <p class="signup-subtitle">Fill in your details to get started</p>

@@ -25,7 +25,7 @@
     <div class="container">
       <div class="nav">
         <a class="brand" href="home">
-          <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <h1>Pennieshares</h1>
         </a>
 
@@ -54,7 +54,7 @@
     <nav class="nav-mobile" id="nav-mobile">
       <div class="nav-mobile-header">
         <div class="nav-mobile-brand">
-          <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <span>Pennieshares</span>
         </div>
         <button id="close-menu-btn" aria-label="Close menu">
@@ -92,8 +92,8 @@
         </div>
       </div>
       <div class="img-ph" data-aos="fade-left">
-        <img src="assets/images/dashboardscreenlight.jpg" alt="App Screenshot Light Mode" class="light-mode-img-hero">
-        <img src="assets/images/dashboardscreendark.jpg" alt="App Screenshot Dark Mode" class="dark-mode-img-hero" style="display: none;">
+        <img src="<?= BASE_URL ?>/assets/images/dashboardscreenlight.jpg" alt="App Screenshot Light Mode" class="light-mode-img-hero">
+        <img src="<?= BASE_URL ?>/assets/images/dashboardscreendark.jpg" alt="App Screenshot Dark Mode" class="dark-mode-img-hero" style="display: none;">
       </div>
     </div>
   </section>
@@ -176,8 +176,8 @@
         </div>
       <div class="phone-mockup" data-aos="fade-up" data-aos-delay="200">
         <div class="phone-screen">
-          <img src="assets/images/lightdashboard.png" alt="App Screenshot Light Mode" class="light-mode-img">
-          <img src="assets/images/darkdashboard.png" alt="App Screenshot Dark Mode" class="dark-mode-img" style="display: none;">
+          <img src="<?= BASE_URL ?>/assets/images/lightdashboard.png" alt="App Screenshot Light Mode" class="light-mode-img">
+          <img src="<?= BASE_URL ?>/assets/images/darkdashboard.png" alt="App Screenshot Dark Mode" class="dark-mode-img" style="display: none;">
         </div>
       </div>
     </div>
@@ -188,7 +188,7 @@
     <div class="container foot-grid">
       <div>
         <div class="brand" style="gap:10px">
-          <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <strong style="font-size:18px;color:var(--ink)">Pennieshares</strong>
         </div>
         <div class="sp-16"></div>

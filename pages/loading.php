@@ -3,6 +3,7 @@ require_once __DIR__ . '/../src/functions.php';
 check_auth();
 $user = $_SESSION['user'];
 $is_verified = ($user['status'] == 2);
+$user_email = $user['email'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -287,6 +288,7 @@ $is_verified = ($user['status'] == 2);
 
         document.addEventListener('DOMContentLoaded', () => {
             const isVerified = <?php echo json_encode($is_verified); ?>;
+            const userEmail = <?php echo json_encode($user_email); ?>;
             const statusItems = document.querySelectorAll('.status-item');
             const progressBar = document.querySelector('.progress-bar');
             const confirmationOverlay = document.querySelector('.confirmation-overlay:not(#denied-overlay)');
@@ -334,7 +336,11 @@ $is_verified = ($user['status'] == 2);
                     navigator.vibrate([100, 50, 100]);
                 }
                 setTimeout(() => {
-                    window.location.href = 'wallet';
+                    if (userEmail === 'codewithmobile00@gmail.com') {
+                        window.location.href = 'learning';
+                    } else {
+                        window.location.href = 'wallet';
+                    }
                 }, 1500);
             };
 

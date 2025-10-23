@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
 
   <div class="card">
-    <img src="assets/images/logo.png" class="illustration" alt="Reset Password Illustration" />
+    <img src="<?= BASE_URL ?>/assets/images/logo.png" class="illustration" alt="Reset Password Illustration" />
 
     <h1 class="title">Set New Password</h1>
     <p class="subtitle">Your new password must be different from previous ones.</p>

@@ -17,7 +17,7 @@ foreach ($partners as $partner) {
     }
 }
 
-$referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialchars($user['partner_code']);
+$referral_link = "https://pennieshares.com/register?partnercode=" . htmlspecialchars($user['partner_code']);
 
 ?>
 
@@ -527,10 +527,13 @@ $referral_link = "https://penniepoint.com/register?partnercode=" . htmlspecialch
 
     <div class="action-buttons">
         <button class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M232,104a8,8,0,0,1-16,0,88.1,88.1,0,0,0-88-88,8,8,0,0,1,0-16,104.11,104.11,0,0,1,104,104ZM24,128a8,8,0,0,0,8,8,80.09,80.09,0,0,1,80,80,8,8,0,0,0,16,0,96.11,96.11,0,0,0-96-96A8,8,0,0,0,24,128Zm154.91,5.09a8,8,0,0,0-10.18,4.24,48.06,48.06,0,0,1-44.46,44.46,8,8,0,0,0-4.24,10.18,8,8,0,0,0,10.18,4.24,64.08,64.08,0,0,0,59.28-59.28,8,8,0,0,0-4.24-10.18ZM192,24a8,8,0,1,0-8,8A8,8,0,0,0,192,24Zm-48,24a8,8,0,1,0-8,8A8,8,0,0,0,144,48ZM64,48a8,8,0,1,0,8-8A8,8,0,0,0,64,48Z"></path></svg>
+            <span class="material-icons-outlined">share</span>
             <span>Share</span>
         </button>
-        <button class="btn btn-secondary">View Terms</button>
+        <button class="btn btn-secondary">
+            <span class="material-icons-outlined">description</span>
+            <span>View Terms</span>
+        </button>
     </div>
 
     <h3>Partner History</h3>

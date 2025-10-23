@@ -246,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
 
   <div class="card">
-    <img src="assets/images/logo.png" class="illustration" alt="OTP Illustration" />
+    <img src="<?= BASE_URL ?>/assets/images/logo.png" class="illustration" alt="OTP Illustration" />
 
     <h1 class="title">Verify Code</h1>
     <p class="subtitle">Enter the 6-digit code sent to your email.</p>

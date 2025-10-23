@@ -249,7 +249,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
 
         <div class="profile-section">
             <div class="profile-image-wrapper">
-                <img alt="Company Logo" class="profile-image" src="assets/images/logo.png"/>
+                <img alt="Company Logo" class="profile-image" src="<?= BASE_URL ?>/assets/images/logo.png"/>
                 <button class="camera-button">
                     <span class="material-icons camera-icon">photo_camera</span>
                 </button>

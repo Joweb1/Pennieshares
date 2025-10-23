@@ -609,6 +609,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const baseUrl = '<?= BASE_URL ?>';
         // --- Transaction Filtering ---
         const tabsContainer = document.getElementById('tabs-container');
         const tableRows = document.querySelectorAll('#history-table-body tr');

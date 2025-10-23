@@ -765,6 +765,7 @@ html[data-theme="dark"] .purchase-modal-content {
 const ASSET_TYPES = <?php echo json_encode($assetTypes); ?>;
 const CURRENT_USER_WALLET_BALANCE = parseFloat(<?php echo json_encode($currentUserWalletBalance); ?>);
 const PRESELECTED_ASSET_TYPE_ID = <?php echo json_encode($preselectedAssetTypeId); ?>;
+const baseUrl = '<?= BASE_URL ?>';
 
 let currentAssetTypeId = PRESELECTED_ASSET_TYPE_ID || (ASSET_TYPES.length > 0 ? ASSET_TYPES[0].id : null);
 let currentAssetType = ASSET_TYPES.find(asset => asset.id == currentAssetTypeId);
@@ -895,7 +896,7 @@ function updatePriceAndStats(data) {
   state.historicalData = historicalData;
 
   document.getElementById('assetName').textContent = data.asset_type.name;
-  document.getElementById('assetLogo').src = (data.asset_type.image_link || 'assets/images/logo.png').replace('../','');
+  document.getElementById('assetLogo').src = baseUrl + '/' + (data.asset_type.image_link || 'assets/images/logo.png');
 
   document.getElementById('priceDisplay').textContent = formatSv(assetPrice);
 
@@ -1059,7 +1060,7 @@ function initializeEventListeners() {
       li.className = 'flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer';
       li.dataset.assetId = asset.id;
       li.innerHTML = `
-        <img src="${(asset.image_link || 'assets/images/logo.png').replace('../','')}" alt="${asset.name}" class="h-10 w-10 rounded-md mr-3">
+        <img src="${baseUrl}/${(asset.image_link || 'assets/images/logo.png')}" alt="${asset.name}" class="h-10 w-10 rounded-md mr-3">
         <div class="flex-grow">
           <p class="font-bold">${asset.name}</p>
           <p class="text-sm text-gray-500 dark:text-gray-400">SV ${asset.price}</p>
@@ -1511,8 +1512,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const processingState = document.getElementById('processingState');
   const successState = document.getElementById('successState');
   const errorState = document.getElementById('errorState');
-  const successSound = new Audio('../assets/sound/new-notification-07-210334.mp3');
-  const errorCallSound = new Audio('../assets/sound/error-call.mp3');
+  const successSound = new Audio(`${baseUrl}/assets/sound/new-notification-07-210334.mp3`);
+  const errorCallSound = new Audio(`${baseUrl}/assets/sound/error-call.mp3`);
   successSound.preload = 'auto';
 
   const purchaseStatus = <?php echo json_encode($purchaseStatus); ?>;
@@ -1593,7 +1594,7 @@ if (document.documentElement.getAttribute('data-theme') === 'dark') {
 }
 
 // Initialize the application
-bootstrap();
+document.addEventListener('DOMContentLoaded', bootstrap);
 </script>
 
 <?php

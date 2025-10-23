@@ -25,6 +25,11 @@ $loggedInUserId = $loggedInUser['id'];
 // Fetch wallet balance
 $walletBalanceSV = getUserWalletBalance($pdo, $loggedInUserId);
 
+// --- Broker specific stats ---
+if ($loggedInUser['is_broker']) {
+    $brokerStats = getBrokerReferralStats($pdo, $loggedInUserId);
+}
+
 // Calculate Total Return from user's total_return column
 $stmt = $pdo->prepare("SELECT total_return FROM users WHERE id = ?");
 $stmt->execute([$loggedInUserId]);
@@ -112,8 +117,6 @@ if ($currentUserData['last_performance_update'] !== $today) {
         ]
     ];
     // For 6W and 6M, if you want dynamic data, you'd need to store them or generate them based on a seed
-    // For simplicity, I'm using the 6D stored data for performance/change for 6W/6M if not updated
-    // You might want to adjust this logic based on how you want 6W/6M to behave on subsequent visits
     foreach (['6W', '6M'] as $timeframe) {
         for ($i = 0; $i < 7; $i++) {
             $chartDataForJs[$timeframe]['points'][] = mt_rand(20, 130);
@@ -129,32 +132,32 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     /* CSS Variables for Theming */
     :root {
       --bg-color: var(--bg-primary-light);
-      --card-bg-color: var(--bg-secondary-light); /* Changed to secondary for consistency */
-      --card-bg-hover: var(--bg-tertiary-light); /* Changed to tertiary for consistency */
+      --card-bg-color: var(--bg-secondary-light);
+      --card-bg-hover: var(--bg-tertiary-light);
       --text-primary: var(--text-primary-light);
       --text-secondary: var(--text-secondary-light);
       --border-color: var(--border-color-light);
-      --header-bg: var(--bg-primary-light); /* Changed to primary for consistency */
+      --header-bg: var(--bg-primary-light);
       --shadow-color: rgba(0, 0, 0, 0.1);
-      --positive-color: #22c55e; /* Green */
-      --negative-color: #ef4444; /* Red */
+      --positive-color: #22c55e;
+      --negative-color: #ef4444;
       --chart-line-color: var(--accent-color-light);
-      --chart-gradient-start: #e7edf4; /* Light blue-grey */
+      --chart-gradient-start: #e7edf4;
       --chart-gradient-end: rgba(231, 237, 244, 0);
       --glow-color: rgba(59, 130, 246, 0.5);
     }
 
     html[data-theme="dark"] {
       --bg-color: var(--bg-primary-dark);
-      --card-bg-color: var(--bg-secondary-dark); /* Changed to secondary for consistency */
-      --card-bg-hover: var(--bg-tertiary-dark); /* Changed to tertiary for consistency */
+      --card-bg-color: var(--bg-secondary-dark);
+      --card-bg-hover: var(--bg-tertiary-dark);
       --text-primary: var(--text-primary-dark);
       --text-secondary: var(--text-secondary-dark);
       --border-color: var(--border-color-dark);
-      --header-bg: var(--bg-primary-dark); /* Changed to primary for consistency */
+      --header-bg: var(--bg-primary-dark);
       --shadow-color: rgba(255, 255, 255, 0.1);
-      --positive-color: #4ade80; /* Lighter Green */
-      --negative-color: #f87171; /* Lighter Red */
+      --positive-color: #4ade80;
+      --negative-color: #f87171;
       --chart-line-color: var(--accent-color-dark);
       --chart-gradient-start: #2a4365;
       --chart-gradient-end: rgba(42, 67, 101, 0);
@@ -197,15 +200,12 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     .layout-content-container {
       display: flex;
       flex-direction: column;
-      max-width: 1200px; /* Increased max-width for wider desktop view */
+      max-width: 1200px;
       width: 100%;
       margin: 0 auto;
       flex-grow: 1;
       padding: 0 16px;
     }
-    
-    /* Header (from intro-template, adjusted for wallet page) */
-    /* Removed header styles as they are now handled by intro-template */
     
     /* Portfolio header */
     .portfolio-header {
@@ -230,19 +230,27 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     
     /* Stats grid */
     .stats-grid {
-      display: flex; /* Changed to flexbox */
-      flex-wrap: wrap; /* Allow items to wrap */
-      justify-content: space-between; /* Distribute items with space between them */
-      gap: 16px; /* Gap between items */
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin:0;
+      padding;0;
     }
     
     .stat-card {
-      flex: 1; /* Allow cards to grow and shrink */
-      min-width: 250px; /* Minimum width for cards before wrapping */
+      /* flex: 1 1 280px; Responsive wrapping for desktop */
       padding: 24px;
       background-color: var(--card-bg-color);
       border-radius: 12px;
       transition: background-color 0.3s ease;
+      height: auto; /* Ensure height fits content */
+    }
+
+    /* On small and medium screens, stack the cards vertically */
+    @media (max-width: 768px) {
+        .stats-grid {
+            flex-direction: column;
+        }
     }
 
     .stat-header {
@@ -268,6 +276,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       margin-top: 8px;
     }
     .stat-naira {
+    position:relative;
     opacity:.95;
     font-weight:800;
     font-size:16px;
@@ -466,7 +475,6 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       transition: color 0.3s ease;
     }
     
-    /* Blinking effect on update */
     .profit-widget.updated {
       animation: pulse-glow 3s infinite ease-in-out, quick-blink 0.6s 1;
     }
@@ -485,8 +493,6 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       50% { transform: scale(1.05); }
     }
 
-
-    /* Animation */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -496,47 +502,6 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       animation: fadeIn 0.5s ease forwards;
     }
 
-    /* Mobile Responsive Styles */
-    @media (max-width: 900px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-
-    @media (max-width: 768px) {
-       
-        .portfolio-title {
-            font-size: 28px;
-        }
-
-        .performance-container {
-            flex-direction: column;
-        }
-        
-        .profit-widget {
-          width: 110px;
-          height: 110px;
-          bottom: 16px;
-          right: 16px;
-        }
-        .widget-value {
-          font-size: 20px;
-        }
-    }
-     @media (max-width: 480px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .portfolio-title {
-            font-size: 24px;
-        }
-
-        .performance-value {
-            font-size: 28px;
-        }
-    }
-
     /* KYC Popup Styles */
     .kyc-popup-overlay {
         position: fixed;
@@ -544,7 +509,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.5); /* Dark overlay */
+        background-color: rgba(0, 0, 0, 0.5);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -552,19 +517,19 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     }
 
     .kyc-popup-content {
-        background-color: var(--card-bg-color); /* Uses theme variable */
+        background-color: var(--card-bg-color);
         padding: 25px;
         border-radius: 10px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         text-align: center;
         max-width: 350px;
         width: 90%;
-        border: 1px solid var(--border-color); /* Uses theme variable */
+        border: 1px solid var(--border-color);
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     .kyc-popup-message {
-        color: var(--text-primary); /* Uses theme variable */
+        color: var(--text-primary);
         margin-bottom: 20px;
         font-size: 1.1em;
         transition: color 0.3s ease;
@@ -586,8 +551,8 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     }
 
     .kyc-popup-button-primary {
-        background-color: var(--accent-color); /* Uses theme variable */
-        color: var(--accent-text); /* Uses theme variable */
+        background-color: var(--accent-color);
+        color: var(--accent-text);
     }
 
     .kyc-popup-button-primary:hover {
@@ -595,13 +560,123 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     }
 
     .kyc-popup-button-secondary {
-        background-color: var(--bg-tertiary); /* Uses theme variable */
-        color: var(--text-primary); /* Uses theme variable */
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
     }
 
     .kyc-popup-button-secondary:hover {
-        background-color: var(--border-color); /* Uses theme variable */
+        background-color: var(--border-color);
     }
+
+    /* Broker Stats Card V2 Styles */
+    .broker-stats-card-v2 {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #3B82F6, #EF4444);
+        color: #ffffff;
+        padding: 1.5rem;
+    }
+    .broker-stats-card-v2 .stat-title {
+        color: #ffffff;
+    }
+    .broker-card-bg-circle-1, .broker-card-bg-circle-2 {
+        position: absolute;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        z-index: 0;
+    }
+    .broker-card-bg-circle-1 { top: -3rem; right: -3rem; width: 12rem; height: 12rem; }
+    .broker-card-bg-circle-2 { bottom: -4rem; left: -4rem; width: 16rem; height: 16rem; opacity: 0.5; }
+
+    .broker-stats-v2-content {
+        position: relative;
+        z-index: 1;
+        margin-top: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .broker-stats-v2-row {
+        display: flex;
+        gap: 1rem;
+    }
+    .broker-stat-v2-item, .broker-stat-v2-item-full {
+        background-color: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(4px);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .broker-stat-v2-item { width: 50%; }
+    .broker-stat-v2-item-full { width: 100%; }
+
+    .broker-stat-v2-icon-wrapper {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 1.5rem;
+        color: #ffffff;
+    }
+    .broker-stat-v2-icon-wrapper.users { background-color: #3B82F6; }
+    .broker-stat-v2-icon-wrapper.assets { background-color: #10b981; }
+    .broker-stat-v2-icon-wrapper.bonus { background-color: #EF4444; }
+
+    .broker-stat-v2-text .broker-stat-v2-label {
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.8);
+        margin: 0;
+    }
+    .broker-stat-v2-text .broker-stat-v2-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0;
+    }
+
+    /* Portfolio Summary Card Styles */
+    .portfolio-summary-content {
+        display: flex;
+        flex-direction: column;        
+        gap: 1rem;        
+        margin-top: 1rem;
+    }
+    .portfolio-summary-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .portfolio-summary-icon-wrapper {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #fff;
+        font-size: 1.25rem;
+    }
+    .portfolio-summary-icon-wrapper.total-return { background-color: #22c55e; } /* Green */
+    .portfolio-summary-icon-wrapper.assets-worth { background-color: #8b5cf6; } /* Violet */
+
+    .portfolio-summary-text .label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    .portfolio-summary-text .value {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
   </style>
       <div class="content-wrapper">
       <div class="portfolio-header">
@@ -610,7 +685,51 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
       </div>
       
       <div class="stats-grid">
-      
+
+        <?php if ($loggedInUser['is_broker']): ?>
+        <div class="stat-card broker-stats-card-v2">
+            <div class="broker-card-bg-circle-1"></div>
+            <div class="broker-card-bg-circle-2"></div>
+            <div class="stat-header">
+                <p class="stat-title">Broker Referrals</p>
+                <span class="material-icons" style="color: rgba(255,255,255,0.8);">card_travel</span>
+            </div>
+            <div class="broker-stats-v2-content">
+                <div class="broker-stats-v2-row">
+                    <div class="broker-stat-v2-item">
+                        <div class="broker-stat-v2-icon-wrapper users">
+                            <span class="material-icons">group</span>
+                        </div>
+                        <div class="broker-stat-v2-text">
+                            <p class="broker-stat-v2-label">Clients</p>
+                            <p class="broker-stat-v2-value"><?php echo $brokerStats['total_referred_users']; ?></p>
+                        </div>
+                    </div>
+                    <div class="broker-stat-v2-item">
+                        <div class="broker-stat-v2-icon-wrapper assets">
+                            <span class="material-icons">account_balance_wallet</span>
+                        </div>
+                        <div class="broker-stat-v2-text">
+                            <p class="broker-stat-v2-label">Assets</p>
+                            <p class="broker-stat-v2-value"><?php echo $brokerStats['total_assets_of_referred_users']; ?></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="broker-stats-v2-row">
+                    <div class="broker-stat-v2-item-full">
+                        <div class="broker-stat-v2-icon-wrapper bonus">
+                            <span class="material-icons">card_giftcard</span>
+                        </div>
+                        <div class="broker-stat-v2-text">
+                            <p class="broker-stat-v2-label">Bonus</p>
+                            <p class="broker-stat-v2-value">SV <?php echo number_format($brokerStats['total_referral_bonus'], 2); ?></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="stat-card">
             <div class="stat-header">
                 <p class="stat-title">Wallet Balance</p>
@@ -619,24 +738,34 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             <p class="stat-value" id="wallet-balance">SV <?php echo number_format($walletBalanceSV, 2); ?></p>
             <p class="stat-naira" id="wallet-naira"></p>
         </div>
+
         <div class="stat-card">
             <div class="stat-header">
-                <p class="stat-title">Total Return</p>
-                <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M224,144v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V56A16,16,0,0,1,48,40h56a8,8,0,0,1,0,16H48v88a8,8,0,0,0,16,0V88a8,8,0,0,1,16,0v48a8,8,0,0,0,16,0V88a8,8,0,0,1,16,0v24a8,8,0,0,0,16,0V96a8,8,0,0,1,16-16h11.23a8,8,0,0,1,6.65,3.56L224,124.77V144Z"></path></svg>
+                <p class="stat-title">Portfolio Summary</p>
+                <span class="material-icons" >calendar_today</span>
             </div>
-          <p class="stat-value" id="total-return">SV <?php echo number_format($totalReturnSV, 2); ?></p>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-header">
-                <p class="stat-title">Assets Worth</p>
-                <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M224,40H32A16,16,0,0,0,16,56V80a8,8,0,0,0,16,0V56H224V80a8,8,0,0,0,16,0V56A16,16,0,0,0,224,40ZM128,88,32,128v64a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V128Zm80,104H48V136.65l80-32,80,32Z"></path></svg>
+            <div class="portfolio-summary-content">
+                <div class="portfolio-summary-item">
+                    <div class="portfolio-summary-icon-wrapper total-return">
+                        <span class="material-icons">trending_up</span>
+                    </div>
+                    <div class="portfolio-summary-text">
+                        <p class="label">Total Return</p>
+                        <p class="value" id="total-return">SV <?php echo number_format($totalReturnSV, 2); ?></p>
+                    </div>
+                </div>
+                <div class="portfolio-summary-item">
+                    <div class="portfolio-summary-icon-wrapper assets-worth">
+                        <span class="material-icons">diamond</span>
+                    </div>
+                    <div class="portfolio-summary-text">
+                        <p class="label">Assets Worth</p>
+                        <p class="value" id="assets-worth">SV <?php echo number_format($assetsWorthSV, 2); ?></p>
+                    </div>
+                </div>
             </div>
-          <p class="stat-value" id="assets-worth">SV <?php echo number_format($assetsWorthSV, 2); ?></p>
-          <p class="stat-naira" id="assets-worth-naira"></p>
         </div>
       </div>
-      
       <div class="performance-section">
         <h2 class="performance-title">Performance</h2>
         <div class="performance-container">
@@ -809,22 +938,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const walletNairaEl = document.getElementById('wallet-naira');
     const assetsWorthSVEl = document.getElementById('assets-worth');
     const totalReturnEl = document.getElementById('total-return');
-    const assetsWorthNairaEl = document.getElementById('assets-worth-naira');
 
     const convertAndDisplay = () => {
         const walletBalanceSV = parseFloat(walletBalanceSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
-        const assetsWorthSV =  parseFloat(assetsWorthSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 1; // avoid /0
+        const assetsWorthSV =  parseFloat(assetsWorthSVEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
         const totalReturnSV = parseFloat(totalReturnEl.textContent.replace('SV ', '').replace(/,/g, '')) || 0;
 
         const walletBalanceNaira = walletBalanceSV * SV_TO_NAIRA_RATE;
-        if(assetsWorthSV == 0.00){
-            var assetsWorthNaira = 0.00;
-        }else{
-            var assetsWorthNaira = (totalReturnSV / assetsWorthSV) * 100;
-        }
-
+        
         walletNairaEl.textContent = `₦ ${walletBalanceNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        assetsWorthNairaEl.textContent = `+${assetsWorthNaira.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
     };
 
     // --- Profit Widget ---

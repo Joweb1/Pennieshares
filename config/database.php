@@ -1,5 +1,23 @@
 <?php
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->load();
+
+// Define BASE_URL
+if (isset($_ENV['APP_URL'])) {
+    define('BASE_URL', $_ENV['APP_URL']);
+} else {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+    $host = $_SERVER['HTTP_HOST'];
+    $script_name = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
+    $base_path = ($script_name == '/') ? '' : $script_name;
+    define('BASE_URL', $protocol . $host . $base_path);
+}
+
 $db_file = __DIR__ . '/../database/mydatabase.sqlite';
+
 
 try {
     $pdo = new PDO("sqlite:" . $db_file);
@@ -66,6 +84,9 @@ try {
     }
     if (!in_array('earnings_paused', $user_columns)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN earnings_paused INTEGER DEFAULT 0");
+    }
+    if (!in_array('has_received_referral_bonus', $user_columns)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN has_received_referral_bonus INTEGER DEFAULT 0");
     }
 
     // --- Create Payment Proofs Table ---

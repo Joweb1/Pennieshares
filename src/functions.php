@@ -1069,4 +1069,53 @@ function deletePaymentProofForUser($pdo, $userId) {
     }
 }
 
+function getBrokerReferralStats($pdo, $brokerId) {
+    $stats = [
+        'total_referred_users' => 0,
+        'total_referral_bonus' => 0,
+        'total_assets_of_referred_users' => 0,
+    ];
+
+    // Get the broker's partner code
+    $stmt = $pdo->prepare("SELECT partner_code FROM users WHERE id = ?");
+    $stmt->execute([$brokerId]);
+    $partnerCode = $stmt->fetchColumn();
+
+    if (!$partnerCode) {
+        return $stats;
+    }
+
+    // 1. Get total referred users
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE referral = ?");
+    $stmt->execute([$partnerCode]);
+    $referredUsers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $stats['total_referred_users'] = count($referredUsers);
+
+    // 2. Get total referral bonus earned
+    $stmt = $pdo->prepare("SELECT SUM(amount) FROM wallet_transactions WHERE user_id = ? AND type = 'asset_partner_bonus'");
+    $stmt->execute([$brokerId]);
+    $stats['total_referral_bonus'] = $stmt->fetchColumn() ?? 0;
+
+    // 3. Get total assets of referred users
+    if (!empty($referredUsers)) {
+        $placeholders = rtrim(str_repeat('?,', count($referredUsers)), ',');
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM assets WHERE user_id IN ($placeholders)");
+        $stmt->execute($referredUsers);
+        $stats['total_assets_of_referred_users'] = $stmt->fetchColumn() ?? 0;
+    }
+
+    return $stats;
+}
+
+function unassignBrokerRole($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET is_broker = 0 WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error unassigning broker role: " . $e->getMessage());
+        return false;
+    }
+}
+
 ?>

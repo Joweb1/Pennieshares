@@ -25,7 +25,7 @@
     <div class="container">
       <div class="nav">
         <a class="brand" href="#">
-          <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <h1>Pennieshares</h1>
         </a>
 
@@ -54,7 +54,7 @@
     <nav class="nav-mobile" id="nav-mobile">
       <div class="nav-mobile-header">
         <div class="nav-mobile-brand">
-          <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <span>Pennieshares</span>
         </div>
         <button id="close-menu-btn" aria-label="Close menu">
@@ -403,7 +403,7 @@
     <div class="container foot-grid">
       <div>
         <div class="brand" style="gap:10px">
-          <img src="assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="Pennieshares Logo" class="logo" aria-hidden="true">
           <strong style="font-size:18px;color:var(--ink)">Pennieshares</strong>
         </div>
         <div class="sp-16"></div>

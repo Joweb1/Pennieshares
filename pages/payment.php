@@ -658,11 +658,6 @@ if (isset($_GET['upload_success'])) {
     </style>
 </head>
 <body>
-    <div class="notification" id="notification">
-        <i class="fas fa-check-circle"></i>
-        <span>Account number copied to clipboard!</span>
-    </div>
-
     <main>
         <div class="container">
             <div class="breadcrumb">
@@ -674,132 +669,17 @@ if (isset($_GET['upload_success'])) {
             
             <div class="profile-header">
                 <div class="profile-picture-wrapper">
-                    <img alt="Platform Logo" class="profile-picture" src="assets/images/logo.png" />
+                    <img alt="Platform Logo" class="profile-picture" src="<?= BASE_URL ?>/assets/images/logo.png" />
                 </div>
             </div>
             
-            <div class="progress-container">
-                <div class="step-info">
-                    <span class="step-number" id="step-text">Step 1 of 4</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-            </div>
-            
-            <form method="POST" action="payment" enctype="multipart/form-data" id="payment-form">
-                <!-- Step 1: Choose Payment Method -->
-                <div class="step" id="step1">
-                    <h3 class="section-title">Select Payment Method</h3>
-                    <div class="payment-method-selection">
-                        <label class="payment-method-option selected">
-                            <input type="radio" name="payment_method" value="bank_transfer" checked>
-                            <div class="payment-method-option-content">
-                                <div class="selected-tag"><i class="fas fa-check"></i> Selected</div>
-                                <div class="payment-icon"><i class="fas fa-building"></i></div>
-                                <div class="payment-info">
-                                    <p class="account-name">Bank Transfer</p>
-                                    <span class="account-type">Upload proof of payment</span>
-                                </div>
-                            </div>
-                        </label>
-                        <label class="payment-method-option">
-                            <input type="radio" name="payment_method" value="paystack">
-                            <div class="payment-method-option-content">
-                                <div class="selected-tag"><i class="fas fa-check"></i> Selected</div>
-                                <div class="payment-icon"><i class="fas fa-credit-card"></i></div>
-                                <div class="payment-info">
-                                    <p class="account-name">Pay with Paystack</p>
-                                    <span class="account-type">Pay with your card</span>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                    <div class="button-group">
-                        <button type="button" class="button button-primary" id="next-step1">Continue <i class="fas fa-arrow-right"></i></button>
-                    </div>
-                </div>
-
-                <!-- Step 2: Bank Transfer -->
-                <div class="step" id="step-bank-transfer">
-                    <h3 class="section-title">Amount</h3>
-                    <div class="amount-display">₦1,000.00</div>
-                    <h3 class="section-title">Payment Method</h3>
-                    <div class="payment-method">
-                        <div class="payment-icon"><i class="fas fa-building"></i></div>
-                        <div class="payment-info">
-                            <p class="account-name">Uroh Patience</p>
-                            <div class="account-details">
-                                <span class="account-number" id="account-number">9135580911</span>
-                                <button type="button" class="copy-btn" id="copy-btn" title="Copy account number"><i class="far fa-copy"></i></button>
-                            </div>
-                            <span class="account-type">Moniepoint MFB • Bank account</span>
-                        </div>
-                    </div>
-                    <div class="button-group">
-                        <button type="button" class="button button-secondary" id="prev-step-bank-transfer"><i class="fas fa-arrow-left"></i> Back</button>
-                        <button type="button" class="button button-primary" id="next-step-bank-transfer">Continue <i class="fas fa-arrow-right"></i></button>
-                    </div>
-                </div>
-
-                <!-- Step 3: Payment Proof -->
-                <div class="step" id="step-proof">
-                    <h3 class="section-title">Upload Payment Proof</h3>
-                    <div class="upload-container">
-                        <div class="upload-area" id="upload-area">
-                            <div class="upload-text">
-                                <h3>Drag & Drop or Browse</h3>
-                                <p>Upload a screenshot or receipt of your payment (JPG, PNG)</p>
-                            </div>
-                            <button type="button" class="button button-secondary" id="browse-btn"><i class="fas fa-folder-open"></i> Browse Files</button>
-                            <input type="file" name="file" id="file-input" accept="image/*" style="display: none;">
-                        </div>
-                        <div class="preview-container" id="preview-container">
-                            <div class="preview-title">Uploaded Image Preview</div>
-                            <img src="" alt="Payment proof preview" class="image-preview" id="image-preview">
-                        </div>
-                    </div>
-                    <div class="button-group">
-                        <button type="button" class="button button-secondary" id="prev-step-proof"><i class="fas fa-arrow-left"></i> Back</button>
-                        <button type="submit" class="button button-primary" id="submit-proof-btn">Submit Proof <i class="fas fa-check"></i></button>
-                    </div>
-                </div>
-
-                <!-- Step Paystack -->
-                <div class="step" id="step-paystack">
-                    <h3 class="section-title">Pay with Paystack</h3>
-                    <div class="amount-display">₦1,000.00</div>
-                    <div class="confirmation-content">
-                        <p>You will be redirected to Paystack to complete your payment.</p>
-                        <div class="button-group center-button">
-                            <button type="button" class="button button-secondary" id="prev-step-paystack"><i class="fas fa-arrow-left"></i> Back</button>
-                            <button type="button" class="button button-primary" id="pay-with-paystack">Pay with Paystack <i class="fas fa-credit-card"></i></button>
-                        </div>
-                    </div>
-                </div>
-            </form>
-            
-            <!-- Step 3: Confirmation on Success -->
-            <div class="step" id="step3">
+            <div class="step active" id="step-paystack">
+                <h3 class="section-title">Pay with Paystack</h3>
+                <div class="amount-display">₦1,000.00</div>
                 <div class="confirmation-content">
-                    <div class="confirmation-icon success"><i class="fas fa-check-circle"></i></div>
-                    <h2 class="title" style="text-align: center; margin-bottom: 1.5rem;">Payment Submitted!</h2>
-                    <p>Your payment is being processed. We'll notify you via email once your license is approved. This usually takes 1-2 business days.</p>
+                    <p>You will be redirected to Paystack to complete your payment.</p>
                     <div class="button-group center-button">
-                        <a href="logout" class="button button-primary"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 4: Awaiting Approval -->
-            <div class="step" id="step4">
-                <div class="confirmation-content">
-                    <div class="confirmation-icon pending"><i class="fas fa-hourglass-half"></i></div>
-                    <h2 class="title" style="text-align: center; margin-bottom: 1.5rem;">Awaiting Approval</h2>
-                    <p>Your payment proof has been submitted and is awaiting approval. We'll notify you via email once it's verified.</p>
-                    <div class="button-group center-button" style="flex-direction: row; gap: 1rem;">
-                        <a href="logout" class="button button-secondary"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                        <a href="payment?action=retry" class="button button-primary"><i class="fas fa-redo"></i> Retry Payment</a>
+                        <button type="button" class="button button-primary" id="pay-with-paystack">Pay with Paystack <i class="fas fa-credit-card"></i></button>
                     </div>
                 </div>
             </div>
@@ -818,81 +698,7 @@ if (isset($_GET['upload_success'])) {
         })();
 
         document.addEventListener('DOMContentLoaded', function() {
-            const steps = {
-                1: document.getElementById('step1'),
-                'bank-transfer': document.getElementById('step-bank-transfer'),
-                'proof': document.getElementById('step-proof'),
-                'paystack': document.getElementById('step-paystack'),
-                3: document.getElementById('step3'),
-                4: document.getElementById('step4')
-            };
-            const nextStep1 = document.getElementById('next-step1');
-            const prevStepBankTransfer = document.getElementById('prev-step-bank-transfer');
-            const nextStepBankTransfer = document.getElementById('next-step-bank-transfer');
-            const prevStepProof = document.getElementById('prev-step-proof');
-            const prevStepPaystack = document.getElementById('prev-step-paystack');
             const payWithPaystackBtn = document.getElementById('pay-with-paystack');
-
-            const stepText = document.getElementById('step-text');
-            const progressFill = document.getElementById('progress-fill');
-            const browseBtn = document.getElementById('browse-btn');
-            const fileInput = document.getElementById('file-input');
-            const uploadArea = document.getElementById('upload-area');
-            const previewContainer = document.getElementById('preview-container');
-            const imagePreview = document.getElementById('image-preview');
-            const accountNumber = document.getElementById('account-number');
-            const copyBtn = document.getElementById('copy-btn');
-            const notification = document.getElementById('notification');
-            const paymentForm = document.getElementById('payment-form');
-            const submitProofBtn = document.getElementById('submit-proof-btn');
-
-            let initialStep = <?php echo $initialStep; ?>;
-            let currentStep = initialStep > 2 ? initialStep : 1;
-
-            const paymentMethodOptions = document.querySelectorAll('.payment-method-option');
-
-            paymentMethodOptions.forEach(option => {
-                option.addEventListener('click', () => {
-                    paymentMethodOptions.forEach(o => o.classList.remove('selected'));
-                    option.classList.add('selected');
-                });
-            });
-
-            function updateProgress() {
-                let progressPercent = 25;
-                if (currentStep === 'bank-transfer' || currentStep === 'paystack') {stepText.textContent = `Step 2 of 4`; progressPercent = 50;}
-                if (currentStep === 'proof') {progressPercent = 75; stepText.textContent = `Step 3 of 4`;}
-                if (currentStep >= 3){
-                    progressPercent = 100; stepText.textContent = `Step 4 of 4`;
-                }
-                if(currentStep < 2){
-                    progressPercent = 10; stepText.textContent = `Step 1 of 4`;
-                }
-                progressFill.style.width = `${progressPercent}%`;
-            }
-
-            function goToStep(step) {
-                Object.values(steps).forEach(s => s.classList.remove('active'));
-                if (steps[step]) {
-                    steps[step].classList.add('active');
-                    currentStep = step;
-                    updateProgress();
-                }
-            }
-
-            nextStep1.addEventListener('click', () => {
-                const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-                if (selectedPaymentMethod === 'bank_transfer') {
-                    goToStep('bank-transfer');
-                } else {
-                    goToStep('paystack');
-                }
-            });
-
-            prevStepBankTransfer.addEventListener('click', () => goToStep(1));
-            nextStepBankTransfer.addEventListener('click', () => goToStep('proof'));
-            prevStepProof.addEventListener('click', () => goToStep('bank-transfer'));
-            prevStepPaystack.addEventListener('click', () => goToStep(1));
 
             payWithPaystackBtn.addEventListener('click', () => {
                 payWithPaystack();
@@ -905,6 +711,7 @@ if (isset($_GET['upload_success'])) {
                     amount: 1000 * 100, // in kobo
                     currency: 'NGN',
                     ref: 'paystack_' + Math.floor((Math.random() * 1000000000) + 1),
+                    split_code: 'SPL_O5IQZAS3rT',
                     callback: function(response) {
                         window.location = 'payment_callback.php?reference=' + response.reference;
                     },
@@ -914,52 +721,6 @@ if (isset($_GET['upload_success'])) {
                 });
                 handler.openIframe();
             }
-
-
-            browseBtn.addEventListener('click', () => fileInput.click());
-
-            fileInput.addEventListener('change', handleFiles);
-            uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
-            uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('active'));
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('active');
-                fileInput.files = e.dataTransfer.files;
-                handleFiles();
-            });
-
-            function handleFiles() {
-                if (fileInput.files.length > 0) {
-                    const file = fileInput.files[0];
-                    if (file.type.match('image.*')) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            imagePreview.src = e.target.result;
-                            previewContainer.classList.add('active');
-                        };
-                        reader.readAsDataURL(file);
-                    } else {
-                        alert('Please select an image file (JPG, PNG).');
-                    }
-                }
-            }
-
-            paymentForm.addEventListener('submit', (e) => {
-                if (currentStep === 'proof' && fileInput.files.length === 0) {
-                    e.preventDefault();
-                    alert('Please upload a payment proof before submitting.');
-                }
-            });
-
-            copyBtn.addEventListener('click', function() {
-                navigator.clipboard.writeText(accountNumber.textContent).then(() => {
-                    notification.classList.add('show');
-                    setTimeout(() => notification.classList.remove('show'), 3000);
-                });
-            });
-
-            // Initial setup
-            goToStep(currentStep);
         });
     </script>
 </body>

@@ -177,6 +177,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
+// Handle Unassign Broker Role form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'unassign_broker_role') {
+    $username = trim($_POST['username']);
+    $user = getUserByIdOrName($pdo, $username);
+
+    if ($user) {
+        if (unassignBrokerRole($pdo, $user['id'])) {
+            $actionMessage = "User '{$username}' unassigned broker role successfully.";
+        } else {
+            $actionMessage = "Error: Failed to unassign broker role from user '{$username}'. It might not exist or not be a broker.";
+        }
+    } else {
+        $actionMessage = "Error: Invalid Username.";
+    }
+}
+
 // Handle Toggle User Earnings Pause form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle_earnings_pause') {
     $userIdToToggle = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
@@ -273,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             if (in_array($fileExtension, $allowedfileExtensions)) {
                 if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    $imageLink = '../assets/images/' . $newFileName;
+                    $imageLink = 'assets/images/' . $newFileName;
                 } else {
                     $actionMessage = "Error: There was an error moving the uploaded file.";
                 }
@@ -328,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             if (in_array($fileExtension, $allowedfileExtensions)) {
                 if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    $imageLink = '../assets/images/' . $newFileName;
+                    $imageLink = 'assets/images/' . $newFileName;
                 } else {
                     $actionMessage = "Error: There was an error moving the uploaded file.";
                 }
@@ -777,10 +793,35 @@ include __DIR__ . '/../assets/template/intro-template.php';
         color: var(--accent-text);
         border-color: var(--accent-color);
     }
+
+    .admin-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .action-link {
+        display: inline-block;
+        padding: 0.8rem 1.5rem;
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: background-color 0.3s ease;
+    }
+    .action-link:hover {
+        background-color: #0a69c4;
+    }
 </style>
 
 <div class="admin-container">
     <h1>Admin Dashboard</h1>
+
+    <div class="admin-actions">
+        
+        <a href="admin_unverify" class="action-link">Un-verify Users</a>
+    </div>
 
     <?php if ($actionMessage || ($purchaseDetails && isset($purchaseDetails['summary']))): ?>
         <div class="message <?php echo strpos(strtolower($actionMessage), 'error') !== false || (isset($purchaseDetails['purchases'][0]['error'])) ? 'error' : 'success'; ?>">
@@ -896,6 +937,15 @@ include __DIR__ . '/../assets/template/intro-template.php';
             <input type="hidden" name="action" value="assign_broker_role">
             <div><label for="username_broker">Username:</label><input type="text" name="username" id="username_broker" required></div>
             <button type="submit">Make Broker</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h2>Unassign Broker Role</h2>
+        <form method="post">
+            <input type="hidden" name="action" value="unassign_broker_role">
+            <div><label for="username_unassign_broker">Username:</label><input type="text" name="username" id="username_unassign_broker" required></div>
+            <button type="submit">Unassign Broker</button>
         </form>
     </div>
 
@@ -1041,7 +1091,7 @@ include __DIR__ . '/../assets/template/intro-template.php';
                     <td data-label="Price">SV<?php echo number_format($a['asset_price'], 2); ?></td>
                     <td data-label="Image">
                         <?php if (!empty($assetBranding['image'])): ?>
-                            <img src="<?php echo htmlspecialchars($assetBranding['image']); ?>" alt="<?php echo htmlspecialchars($assetBranding['name']); ?>" style="width: 50px; height: 50px; object-fit: cover;">
+                            <img src="<?= BASE_URL ?>/<?= htmlspecialchars($assetBranding['image']) ?>" alt="<?php echo htmlspecialchars($assetBranding['name']); ?>" style="width: 50px; height: 50px; object-fit: cover;">
                         <?php else: ?>
                             N/A
                         <?php endif; ?>

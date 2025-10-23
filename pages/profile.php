@@ -487,7 +487,7 @@ $referredUsers = getReferredUsers($user['partner_code']);
       <div class="up-circle"></div>
       <div class="profile-header">
         <div class="profile-avatar">
-          <img src="assets/images/logo.png" class="logo-img" >
+          <img src="<?= BASE_URL ?>/assets/images/logo.png" class="logo-img" >
         </div>
       </div>
     </div>

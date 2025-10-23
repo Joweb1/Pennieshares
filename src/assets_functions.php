@@ -169,34 +169,50 @@ function buyAsset($pdo, $userId, $assetTypeId, $numAssetsToBuy = 1) {
         if ($buyer && !empty($buyer['referral'])) {
             $referrer = getUserByIdOrName($pdo, $buyer['referral']);
             if ($referrer) {
-                $referralBonusAmount = REFERRAL_BONUS;
-                
-                // Manually credit wallet to avoid double email from generic credit function
-                $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :id")->execute([':amount' => $referralBonusAmount, ':id' => $referrer['id']]);
-                // Also add to total_return for asset partner bonus
-                $pdo->prepare("UPDATE users SET total_return = total_return + :amount WHERE id = :id")->execute([':amount' => $referralBonusAmount, ':id' => $referrer['id']]);
-                
-                // Manually log the transaction for the referrer
-                $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
-                $logStmt->execute([$referrer['id'], 'asset_partner_bonus', $referralBonusAmount, "Asset partner bonus from " . $buyer['username']]);
+                $giveBonus = false;
+                // Scenario 1: Referrer is a broker
+                if ($referrer['is_broker'] == 1) {
+                    $giveBonus = true;
+                }
+                // Scenario 2: Referrer is not a broker and has not received the bonus before
+                elseif ($referrer['is_broker'] == 0 && $referrer['has_received_referral_bonus'] == 0) {
+                    $giveBonus = true;
+                    // Mark that this non-broker has now received their one-time bonus
+                    $pdo->prepare("UPDATE users SET has_received_referral_bonus = 1 WHERE id = ?")->execute([$referrer['id']]);
+                }
 
-                // Send the specific email notification for the bonus
-                $email_data = [
-                    'referrer_username' => $referrer['username'],
-                    'bonus_amount'      => number_format($referralBonusAmount, 2),
-                    'new_user_username' => $buyer['username']
-                ];
-                sendNotificationEmail('asset_partner_bonus_user', $email_data, $referrer['email'], 'You Received an Asset Partner Bonus!');
-                // Send push notification to referrer
-                $referrer_payload = [
-                    'title' => 'Referral Bonus!',
-                    'body' => 'You received a SV' . number_format($referralBonusAmount, 2) . ' bonus from ' . $buyer['username'] . '.',
-                    'icon' => 'assets/images/logo.png',
-                ];
-                sendPushNotification($referrer['id'], $referrer_payload);
+                if ($giveBonus) {
+                    $referralBonusAmount = REFERRAL_BONUS;
+                    
+                    // Manually credit wallet to avoid double email from generic credit function
+                    $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + :amount WHERE id = :id")->execute([':amount' => $referralBonusAmount, ':id' => $referrer['id']]);
+                    // Also add to total_return for asset partner bonus
+                    $pdo->prepare("UPDATE users SET total_return = total_return + :amount WHERE id = :id")->execute([':amount' => $referralBonusAmount, ':id' => $referrer['id']]);
+                    
+                    // Manually log the transaction for the referrer
+                    $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+                    $logStmt->execute([$referrer['id'], 'asset_partner_bonus', $referralBonusAmount, "Asset partner bonus from " . $buyer['username']]);
 
-                $remainingAmount -= $referralBonusAmount;
-                $currentPurchaseResult['referral_bonus_log'] = "Referrer #{$referrer['id']} ({$referrer['username']}) received ₦" . number_format($referralBonusAmount, 2) . ".";
+                    // Send the specific email notification for the bonus
+                    $email_data = [
+                        'referrer_username' => $referrer['username'],
+                        'bonus_amount'      => number_format($referralBonusAmount, 2),
+                        'new_user_username' => $buyer['username']
+                    ];
+                    sendNotificationEmail('asset_partner_bonus_user', $email_data, $referrer['email'], 'You Received an Asset Partner Bonus!');
+                    // Send push notification to referrer
+                    $referrer_payload = [
+                        'title' => 'Referral Bonus!',
+                        'body' => 'You received a SV' . number_format($referralBonusAmount, 2) . ' bonus from ' . $buyer['username'] . '.',
+                        'icon' => 'assets/images/logo.png',
+                    ];
+                    sendPushNotification($referrer['id'], $referrer_payload);
+
+                    $remainingAmount -= $referralBonusAmount;
+                    $currentPurchaseResult['referral_bonus_log'] = "Referrer #{$referrer['id']} ({$referrer['username']}) received ₦" . number_format($referralBonusAmount, 2) . ".";
+                } else {
+                    $currentPurchaseResult['referral_bonus_log'] = "Referrer #{$referrer['id']} ({$referrer['username']}) is not eligible for a bonus on this purchase.";
+                }
             }
         }
 

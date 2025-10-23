@@ -1,5 +1,12 @@
 RewriteEngine On
 
+# Ignore assets and uploads folders
+RewriteRule ^assets/ - [L]
+RewriteRule ^uploads/ - [L]
+
+# Route API requests to the correct directory
+RewriteRule ^api/(.*)$ pages/api/$1 [L,QSA]
+
 # Redirect URLs like /login to index.php?page=login
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

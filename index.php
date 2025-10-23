@@ -21,7 +21,7 @@ if (isset($_GET['page'])) {
 }
 
 // Define available pages
-    $pages = ['home', 'login', 'register', 'profile', 'profile_view', 'profile_edit', 'find_broker', 'forgot_password', 'verify_otp', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'testup', 'about','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions', 'wallet', 'shares', 'loading', 'partner', 'settings', 'api/generate_transaction_history', 'api/get_asset_type_data.php', 'api/get_completed_assets.php', 'kyc', 'admin_kyc', 'broker_verify', 'verify_registration_otp', 'save-subscription', 'terms', 'download', 'broker_application', 'paystack_payment', 'payment_success', 'payment_failure', 'grouped_assets', 'asset_details', 'sell_asset', 'sell_all_completed_assets', 'pause_all_users'];
+    $pages = ['home', 'login', 'register', 'profile', 'profile_view', 'profile_edit', 'find_broker', 'forgot_password', 'verify_otp', 'reset_password', 'logout', 'delete_account', 'payment', 'admin_verify', 'admin_unverify', 'testup', 'about','faqs', 'idcard', 'assets', 'admin', 'market', 'buy_shares', 'transfer', 'transactions', 'wallet', 'shares', 'loading', 'partner', 'settings', 'api/generate_transaction_history', 'api/get_asset_type_data.php', 'api/get_completed_assets.php', 'kyc', 'admin_kyc', 'broker_verify', 'verify_registration_otp', 'save-subscription', 'terms', 'download', 'broker_application', 'paystack_payment', 'payment_success', 'payment_failure', 'grouped_assets', 'asset_details', 'sell_asset', 'sell_all_completed_assets', 'pause_all_users', 'learning', 'learning_view'];
 
 // Retrieve query parameters safely
 $partnercode = $_GET['partnercode'] ?? NULL; // Example: ?token=abc123
