@@ -417,112 +417,7 @@ function getUserByIdOrName($pdo, $identifier) {
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function transferWalletBalance($pdo, $senderId, $receiverId, $amount, $pin) {
-    if (!is_numeric($amount) || $amount <= 0) {
-        return ['success' => false, 'message' => "Invalid transfer amount."];
-    }
 
-    if ($senderId == $receiverId) {
-        return ['success' => false, 'message' => "Cannot transfer to yourself."];
-    }
-
-    // Verify transaction PIN
-    if (!verifyTransactionPin($pdo, $senderId, $pin)) {
-        return ['success' => false, 'message' => "Invalid transaction PIN."];
-    }
-
-    try {
-        // Check sender's role
-        $senderUser = getUserByIdOrName($pdo, $senderId);
-        $isSenderBroker = $senderUser['is_broker'] == 1;
-
-        // Check receiver's role if sender is not a broker
-        if (!$isSenderBroker) {
-            $receiverUser = getUserByIdOrName($pdo, $receiverId);
-            if ($receiverUser['is_broker'] != 1) {
-                return ['success' => false, 'message' => "You can only transfer to a broker."];
-            }
-        }
-
-        
-
-        // Check sender's balance
-        $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
-        $stmt->execute([$senderId]);
-        $senderBalance = $stmt->fetchColumn();
-
-        if ($senderBalance < $amount) {
-            return ['success' => false, 'message' => "Insufficient funds."];
-        }
-
-        // Deduct from sender
-        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?");
-        $stmt->execute([$amount, $senderId]);
-        
-        // Log sender's transaction
-        $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
-        $receiverUser = getUserByIdOrName($pdo, $receiverId);
-        $payoutDescription = 'Payout to ' . $receiverUser['username'] . '/' . $receiverUser['partner_code'];
-        $logStmt->execute([$senderId, 'payout', -$amount, $payoutDescription]);
-
-        // Add to receiver
-        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?");
-        $stmt->execute([$amount, $receiverId]);
-
-        // Log receiver's transaction
-        $sender = getUserByIdOrName($pdo, $senderId);
-        $receiverDescription = 'Transfer from user ' . $sender['username'];
-        if ($isSenderBroker) {
-            $receiverDescription = 'Credit from Broker: ' . $sender['username'];
-        }
-        $logStmt->execute([$receiverId, 'transfer_in', $amount, $receiverDescription]);
-
-        // Send email to sender
-        $sender_data = [
-            'username' => $sender['username'],
-            'transaction_type' => 'Transfer Out',
-            'amount' => $amount,
-            'description' => $payoutDescription,
-            'date' => date('Y-m-d H:i:s')
-        ];
-        sendNotificationEmail('wallet_transaction_user', $sender_data, $sender['email'], 'Wallet Transfer Notification');
-        // Send push notification to sender
-        $sender_payload = [
-            'title' => 'Funds Transferred!',
-            'body' => 'You have successfully transferred SV' . number_format($amount, 2) . ' to ' . $receiverUser['username'] . '.',
-            'icon' => 'assets/images/logo.png',
-        ];
-        sendPushNotification($senderId, $sender_payload);
-
-        // Send email to receiver
-        $receiver = getUserByIdOrName($pdo, $receiverId);
-        $receiver_data = [
-            'username' => $receiver['username'],
-            'transaction_type' => 'Transfer In',
-            'amount' => $amount,
-            'description' => $receiverDescription,
-            'date' => date('Y-m-d H:i:s')
-        ];
-        if ($isSenderBroker) {
-            send_broker_credit_email($receiver['email'], $receiver['username'], $amount, $sender['username']);
-        } else {
-            sendNotificationEmail('wallet_transaction_user', $receiver_data, $receiver['email'], 'Wallet Transfer Notification');
-        }
-        // Send push notification to receiver
-        $receiver_payload = [
-            'title' => 'Funds Received!',
-            'body' => 'You have received SV' . number_format($amount, 2) . ' from ' . $sender['username'] . '.',
-            'icon' => 'assets/images/logo.png',
-        ];
-        sendPushNotification($receiverId, $receiver_payload);
-
-        return ['success' => true, 'message' => "Transfer successful."];
-
-    } catch (PDOException $e) {
-        error_log("Wallet transfer failed: " . $e->getMessage());
-        return ['success' => false, 'message' => "Database error during transfer."];
-    }
-}
 
 function assignAdminRole($pdo, $userId) {
     try {
@@ -822,6 +717,25 @@ function getTotalUserCount($pdo, $searchQuery = '') {
     return $stmt->fetchColumn();
 }
 
+function getUnverifiedUsers($pdo, $searchQuery = '') {
+    $sql = "SELECT id, username, fullname, email FROM users WHERE is_verified = 0";
+    $params = [];
+
+    if (!empty($searchQuery)) {
+        $sql .= " AND (username LIKE ? OR email LIKE ? OR fullname LIKE ?)";
+        $params[] = '%' . $searchQuery . '%';
+        $params[] = '%' . $searchQuery . '%';
+        $params[] = '%' . $searchQuery . '%';
+    }
+
+    $sql .= " ORDER BY id ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
 function checkAndSendDailyLoginEmail($pdo, $userId) {
     $today = date('Y-m-d');
     $stmt = $pdo->prepare("SELECT last_login_email_sent FROM users WHERE id = ?");
@@ -1115,6 +1029,206 @@ function unassignBrokerRole($pdo, $userId) {
     } catch (PDOException $e) {
         error_log("Error unassigning broker role: " . $e->getMessage());
         return false;
+    }
+}
+
+// --- New Broker Interaction Functions ---
+
+function addOrUpdateBrokerInteraction($pdo, $userId, $brokerUserId) {
+    try {
+        // Check if an interaction already exists
+        $stmt = $pdo->prepare("SELECT id FROM user_broker_interactions WHERE user_id = ? AND broker_user_id = ?");
+        $stmt->execute([$userId, $brokerUserId]);
+        $interactionId = $stmt->fetchColumn();
+
+        if ($interactionId) {
+            // Update existing interaction
+            $stmt = $pdo->prepare("UPDATE user_broker_interactions SET last_transfer_at = datetime('now') WHERE id = ?");
+            $stmt->execute([$interactionId]);
+        } else {
+            // Insert new interaction
+            $stmt = $pdo->prepare("INSERT INTO user_broker_interactions (user_id, broker_user_id, last_transfer_at) VALUES (?, ?, datetime('now'))");
+            $stmt->execute([$userId, $brokerUserId]);
+        }
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error adding/updating broker interaction: " . $e->getMessage());
+        return false;
+    }
+}
+
+function getRecentBrokers($pdo, $userId, $limit = 3) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT u.id, u.username, u.partner_code, u.phone, ubi.is_favorite
+            FROM user_broker_interactions ubi
+            JOIN users u ON ubi.broker_user_id = u.id
+            WHERE ubi.user_id = ?
+            ORDER BY ubi.last_transfer_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error getting recent brokers: " . $e->getMessage());
+        return [];
+    }
+}
+
+function getFavoriteBrokers($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT u.id, u.username, u.partner_code, u.phone, ubi.is_favorite
+            FROM user_broker_interactions ubi
+            JOIN users u ON ubi.broker_user_id = u.id
+            WHERE ubi.user_id = ? AND ubi.is_favorite = 1
+            ORDER BY u.username ASC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error getting favorite brokers: " . $e->getMessage());
+        return [];
+    }
+}
+
+function toggleFavoriteBroker($pdo, $userId, $brokerUserId) {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO user_broker_interactions (user_id, broker_user_id, is_favorite, last_transfer_at)
+            VALUES (?, ?, 1, datetime('now'))
+            ON CONFLICT(user_id, broker_user_id) DO UPDATE SET is_favorite = CASE WHEN is_favorite = 0 THEN 1 ELSE 0 END, updated_at = datetime('now')
+        ");
+        $stmt->execute([$userId, $brokerUserId]);
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error toggling favorite broker status: " . $e->getMessage());
+        return false;
+    }
+}
+
+function getBrokerDetailsByPartnerCode($pdo, $partnerCode) {
+    try {
+        $stmt = $pdo->prepare("SELECT id, username, partner_code, is_broker FROM users WHERE partner_code = ?");
+        $stmt->execute([$partnerCode]);
+        $broker = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($broker && $broker['is_broker'] == 1) {
+            return $broker;
+        }
+        return null; // Not found or not a broker
+    } catch (PDOException $e) {
+        error_log("Error getting broker details by partner code: " . $e->getMessage());
+        return null;
+    }
+}
+
+// Modify transferWalletBalance to call addOrUpdateBrokerInteraction
+function transferWalletBalance($pdo, $senderId, $receiverId, $amount, $pin) {
+    if (!is_numeric($amount) || $amount <= 0) {
+        return ['success' => false, 'message' => "Invalid transfer amount."];
+    }
+
+    if ($senderId == $receiverId) {
+        return ['success' => false, 'message' => "Cannot transfer to yourself."];
+    }
+
+    // Verify transaction PIN
+    if (!verifyTransactionPin($pdo, $senderId, $pin)) {
+        return ['success' => false, 'message' => "Invalid transaction PIN."];
+    }
+
+    try {
+        // Check sender's role
+        $senderUser = getUserByIdOrName($pdo, $senderId);
+        $isSenderBroker = $senderUser['is_broker'] == 1;
+
+        // Check receiver's role if sender is not a broker
+        if (!$isSenderBroker) {
+            $receiverUser = getUserByIdOrName($pdo, $receiverId);
+            if ($receiverUser['is_broker'] != 1) {
+                return ['success' => false, 'message' => "You can only transfer to a Broker."];
+            }
+        }
+        
+        // Check sender's balance
+        $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ?");
+        $stmt->execute([$senderId]);
+        $senderBalance = $stmt->fetchColumn();
+
+        if ($senderBalance < $amount) {
+            return ['success' => false, 'message' => "Insufficient funds."];
+        }
+
+        // Deduct from sender
+        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?");
+        $stmt->execute([$amount, $senderId]);
+        
+        // Log sender's transaction
+        $logStmt = $pdo->prepare("INSERT INTO wallet_transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)");
+        $receiverUser = getUserByIdOrName($pdo, $receiverId);
+        $payoutDescription = 'Payout to ' . $receiverUser['username'] . '/' . $receiverUser['partner_code'];
+        $logStmt->execute([$senderId, 'payout', -$amount, $payoutDescription]);
+
+        // Add to receiver
+        $stmt = $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?");
+        $stmt->execute([$amount, $receiverId]);
+
+        // Log receiver's transaction
+        $sender = getUserByIdOrName($pdo, $senderId);
+        $receiverDescription = 'Transfer from user ' . $sender['username'];
+        if ($isSenderBroker) {
+            $receiverDescription = 'Credit from Broker: ' . $sender['username'];
+        }
+        $logStmt->execute([$receiverId, 'transfer_in', $amount, $receiverDescription]);
+
+        // --- NEW: Add or update broker interaction for the sender ---
+        addOrUpdateBrokerInteraction($pdo, $senderId, $receiverId);
+
+        // Send email to sender
+        $sender_data = [
+            'username' => $sender['username'],
+            'transaction_type' => 'Transfer Out',
+            'amount' => $amount,
+            'description' => $payoutDescription,
+            'date' => date('Y-m-d H:i:s')
+        ];
+        sendNotificationEmail('wallet_transaction_user', $sender_data, $sender['email'], 'Wallet Transfer Notification');
+        // Send push notification to sender
+        $sender_payload = [
+            'title' => 'Funds Transferred!',
+            'body' => 'You have successfully transferred SV' . number_format($amount, 2) . ' to ' . $receiverUser['username'] . '.',
+            'icon' => 'assets/images/logo.png',
+        ];
+        sendPushNotification($senderId, $sender_payload);
+
+        // Send email to receiver
+        $receiver = getUserByIdOrName($pdo, $receiverId);
+        $receiver_data = [
+            'username' => $receiver['username'],
+            'transaction_type' => 'Transfer In',
+            'amount' => $amount,
+            'description' => $receiverDescription,
+            'date' => date('Y-m-d H:i:s')
+        ];
+        if ($isSenderBroker) {
+            send_broker_credit_email($receiver['email'], $receiver['username'], $amount, $sender['username']);
+        } else {
+            sendNotificationEmail('wallet_transaction_user', $receiver_data, $receiver['email'], 'Wallet Transfer Notification');
+        }
+        // Send push notification to receiver
+        $receiver_payload = [
+            'title' => 'Funds Received!',
+            'body' => 'You have received SV' . number_format($amount, 2) . ' from ' . $sender['username'] . '.',
+            'icon' => 'assets/images/logo.png',
+        ];
+        sendPushNotification($receiverId, $receiver_payload);
+
+        return ['success' => true, 'message' => "Transfer successful."];
+
+    } catch (PDOException $e) {
+        error_log("Wallet transfer failed: " . $e->getMessage());
+        return ['success' => false, 'message' => "Database error during transfer."];
     }
 }
 

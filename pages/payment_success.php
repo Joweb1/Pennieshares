@@ -115,6 +115,36 @@ require_once __DIR__ . '/../src/functions.php';
             80% { transform: scale(1.1); }
             100% { transform: scale(1); opacity: 1; }
         }
+
+        .verification-container {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background-color: var(--primary-light);
+            border-radius: 0.75rem;
+            border: 1px solid var(--primary-color);
+        }
+
+        .verification-message {
+            font-size: 1rem;
+            color: var(--primary-dark);
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -124,11 +154,20 @@ require_once __DIR__ . '/../src/functions.php';
         </div>
         <h1 class="confirmation-title">Payment Successful!</h1>
         <p class="confirmation-message">
-            Congratulations! Your payment has been successfully processed. Your license will be activated shortly.
+            Congratulations! Your payment has been successfully processed. Your account is now being verified.
         </p>
-        <a href="wallet" class="button button-primary">
+
+        <a href="wallet" class="button button-primary" id="go-to-wallet-btn" style="display:none;">
             <i class="fas fa-wallet"></i> Go to Wallet
         </a>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                window.location.href = 'logout';
+            }, 3000); // 3000 milliseconds = 3 seconds
+        });
+    </script>
 </body>
 </html>

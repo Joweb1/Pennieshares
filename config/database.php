@@ -253,6 +253,30 @@ try {
     // --- Create Push Subscriptions Table (for web push) ---
     $pdo->exec("CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);");
 
+    // --- Create User Broker Interactions Table ---
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_broker_interactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        broker_user_id INTEGER NOT NULL,
+        is_favorite INTEGER DEFAULT 0,
+        last_transfer_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, broker_user_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(broker_user_id) REFERENCES users(id) ON DELETE CASCADE
+    );");
+
+    // --- Create Trigger to Update `updated_at` timestamp for user_broker_interactions ---
+    $pdo->exec("
+        CREATE TRIGGER IF NOT EXISTS update_user_broker_interactions_updated_at
+        AFTER UPDATE ON user_broker_interactions
+        FOR EACH ROW
+        BEGIN
+            UPDATE user_broker_interactions SET updated_at = datetime('now') WHERE id = OLD.id;
+        END;
+    ");
+
     // --- Create Trigger to Update `updated_at` timestamp ---
     $pdo->exec("
         CREATE TRIGGER IF NOT EXISTS update_kyc_verifications_updated_at

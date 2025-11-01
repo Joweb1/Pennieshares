@@ -236,5 +236,26 @@
             <p>Email: <a href="mailto:penniepoint@gmail.com">penniepoint@gmail.com</a></p>
         </div>
     </div>
+
+    <script>
+        (function() {
+            const html = document.documentElement;
+            const applyTheme = (theme) => {
+                html.setAttribute('data-theme', theme);
+            };
+            
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else if (prefersDark) {
+                applyTheme('dark');
+            } else {
+                applyTheme('light');
+            }
+        })();
+    </script>
+
 </body>
 </html>

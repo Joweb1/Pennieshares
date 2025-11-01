@@ -821,6 +821,7 @@ include __DIR__ . '/../assets/template/intro-template.php';
     <div class="admin-actions">
         
         <a href="admin_unverify" class="action-link">Un-verify Users</a>
+        <a href="admin_unverified_users" class="action-link">Unverified Users</a>
     </div>
 
     <?php if ($actionMessage || ($purchaseDetails && isset($purchaseDetails['summary']))): ?>

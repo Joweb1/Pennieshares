@@ -118,6 +118,10 @@ if (isset($_GET['upload_success'])) {
             --upload-border: #cbd5e1;
             --success-color: #4caf50;
             --error-color: #ef4444;
+            --loading-overlay-bg: rgba(255, 255, 255, 0.2); /* Whitish glassmorphism */
+            --loading-text-color: #0d141c; /* Dark text for light mode */
+            --loading-icon-color: #0d47a1; /* Darker blue for icon in light mode */
+            --loading-paragraph-color: red;
         }
 
         html[data-theme='dark'] {
@@ -145,6 +149,10 @@ if (isset($_GET['upload_success'])) {
             --upload-border: #4b5563;
             --success-color: #4ade80;
             --error-color: #f87171;
+            --loading-overlay-bg: rgba(0, 0, 0, 0.4); /* Darkish glassmorphism */
+            --loading-text-color: #f9fafb; /* Light text for dark mode */
+            --loading-icon-color: #ffc107; /* Yellowish orange for icon in dark mode */
+            --loading-paragraph-color: #ff5252;
         }
 
         * {
@@ -159,6 +167,75 @@ if (isset($_GET['upload_success'])) {
             min-height: 100vh;
             color: var(--text-dark);
             transition: background-color 0.3s, color 0.3s;
+        }
+        
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--loading-overlay-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #loading-overlay .loading-content {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
+            border: 1px solid rgba( 255, 255, 255, 0.18 );
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin: 0 20px; /* Reduced horizontal margin */
+        }
+
+        #loading-overlay p {
+            margin-top: 1rem;
+            font-size: 0.84rem; /* 30% reduction from 1.2rem */
+            color: var(--loading-paragraph-color);
+        }
+
+        .modern-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-icon {
+            font-size: 2.1rem; /* 30% reduction from 3rem */
+            color: var(--loading-icon-color);
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .container {
@@ -658,6 +735,13 @@ if (isset($_GET['upload_success'])) {
     </style>
 </head>
 <body>
+    <div id="loading-overlay">
+        <div class="loading-content">
+            <i class="fas fa-sync-alt fa-spin loading-icon"></i>
+            <h2 style="font-weight: bold; text-align: center; color: var(--loading-text-color); font-size: 1.225rem;">Verifying Payment...</h2>
+            <p style="color: var(--loading-paragraph-color);">Please do not leave this page</p>
+        </div>
+    </div>
     <main>
         <div class="container">
             <div class="breadcrumb">
@@ -699,6 +783,7 @@ if (isset($_GET['upload_success'])) {
 
         document.addEventListener('DOMContentLoaded', function() {
             const payWithPaystackBtn = document.getElementById('pay-with-paystack');
+            const loadingOverlay = document.getElementById('loading-overlay');
 
             payWithPaystackBtn.addEventListener('click', () => {
                 payWithPaystack();
@@ -711,12 +796,13 @@ if (isset($_GET['upload_success'])) {
                     amount: 1000 * 100, // in kobo
                     currency: 'NGN',
                     ref: 'paystack_' + Math.floor((Math.random() * 1000000000) + 1),
-                    split_code: 'SPL_O5IQZAS3rT',
                     callback: function(response) {
+                        loadingOverlay.classList.add('show');
                         window.location = 'payment_callback.php?reference=' + response.reference;
                     },
                     onClose: function() {
                         // user closed popup
+                        alert('Payment was not completed.');
                     }
                 });
                 handler.openIframe();

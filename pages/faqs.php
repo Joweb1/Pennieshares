@@ -13,6 +13,24 @@ $user = $_SESSION['user'];
   <!-- Font Awesome (CDN) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
+    :root {
+        --bg-primary: #f5f5f5;
+        --bg-secondary: #ffffff;
+        --text-primary: #000;
+        --text-secondary: #333;
+        --accent-color: #020066;
+        --header-gradient: linear-gradient(135deg, rgba(0,0,250,1) 0%, rgba(2,0,102,1) 100%);
+    }
+
+    html[data-theme="dark"] {
+        --bg-primary: #111418;
+        --bg-secondary: #1b2127;
+        --text-primary: #f0f4f8;
+        --text-secondary: #a0b3c6;
+        --accent-color: #1d90f5;
+        --header-gradient: linear-gradient(135deg, #1d90f5 0%, #0d3c8a 100%);
+    }
+
     /* Global Resets and Base */
     * {
       margin: 0;
@@ -22,8 +40,8 @@ $user = $_SESSION['user'];
     
     body {
       font-family: System, sans-serif;
-      background-color: #f5f5f5;
-      color: #000;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
       line-height: 1.6;
     }
     
@@ -32,7 +50,7 @@ $user = $_SESSION['user'];
       position: absolute;
       top: 0;
       left: 0;
-      background: linear-gradient(135deg, rgba(0,0,250,1) 0%, rgba(2,0,102,1) 100%);
+      background: var(--header-gradient);
       height: 40vh;
       width: 130vw;
       transform: translateX(-30vw);
@@ -100,7 +118,7 @@ $user = $_SESSION['user'];
     
     .faq-section {
       margin-bottom: 20px;
-      background: #fff;
+      background: var(--bg-secondary);
       border-radius: 10px;
       box-shadow: 0 3px 15px rgba(0,0,0,0.1);
       overflow: hidden;
@@ -117,12 +135,12 @@ $user = $_SESSION['user'];
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #fff;
+      background: var(--bg-secondary);
     }
     
     .faq-header h3 {
       font-size: 1.2rem;
-      color: #020066;
+      color: var(--accent-color);
     }
     
     .faq-icon {
@@ -137,7 +155,7 @@ $user = $_SESSION['user'];
       max-height: 0;
       overflow: hidden;
       padding: 0 20px;
-      background: #fafafa;
+      background: var(--bg-primary);
       transition: max-height 0.4s ease, padding 0.4s ease;
     }
     
@@ -147,7 +165,7 @@ $user = $_SESSION['user'];
     
     .faq-body p {
       font-size: 0.95rem;
-      color: #333;
+      color: var(--text-secondary);
     }
     
     /* Scroll Animation Base: Hide elements before in view */
@@ -382,6 +400,25 @@ $user = $_SESSION['user'];
       window.addEventListener('scroll', handleScrollAnimation);
       handleScrollAnimation();
     });
+  </script>
+  <script>
+    (function() {
+        const html = document.documentElement;
+        const applyTheme = (theme) => {
+            html.setAttribute('data-theme', theme);
+        };
+        
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else if (prefersDark) {
+            applyTheme('dark');
+        } else {
+            applyTheme('light');
+        }
+    })();
   </script>
 </body>
 </html>

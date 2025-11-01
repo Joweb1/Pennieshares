@@ -19,6 +19,30 @@ if($user['status'] != 2){
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f2f5;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --accent-color: #0d3c8a;
+            --accent-gradient: linear-gradient(135deg, rgba(12,15,122,1) 0%, rgba(212,115,122,1) 100%);
+
+            /* ID Card specific colors that do not change with theme */
+            --card-bg: white;
+            --card-text-primary: #333;
+            --card-text-secondary: #666;
+            --card-accent-color: #0d3c8a;
+        }
+
+        html[data-theme="dark"] {
+            --bg-primary: #111418;
+            --bg-secondary: #1b2127;
+            --text-primary: #f0f4f8;
+            --text-secondary: #a0b3c6;
+            --accent-color: #1d90f5;
+            --accent-gradient: linear-gradient(135deg, #1d90f5 0%, #ff6b6b 100%);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -27,15 +51,15 @@ if($user['status'] != 2){
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #ffffff;
+            background: var(--bg-primary);
             min-height: 100vh;
             padding: 20px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .back{
             background: transparent; /* Transparent background */
-            color:#333; /* Dark color for the icon */
+            color: var(--text-primary); /* Dark color for the icon */
             border-radius:10px;
             font-size:20px;
             position:absolute;
@@ -48,7 +72,7 @@ if($user['status'] != 2){
             box-shadow: none; /* Remove shadow for transparent background */
         }
         .back:hover {
-            background: rgba(0, 0, 0, 0.1); /* Slight hover effect */
+            background: rgba(0, 0, 0, 0.1);
         }
         .back svg {
             fill: currentColor; /* Ensure SVG inherits the color */
@@ -68,7 +92,7 @@ if($user['status'] != 2){
         }
 
         .form-section {
-            background: linear-gradient(135deg, rgba(12,15,122,1) 0%, rgba(212,115,122,1) 100%);
+            background: var(--accent-gradient);
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 40px rgba(30, 60, 114, 0.2);
@@ -198,7 +222,7 @@ if($user['status'] != 2){
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-            background: white;
+            background: var(--card-bg);
         }
 
         .card-back {
@@ -257,7 +281,7 @@ if($user['status'] != 2){
             position: absolute;
             width: 200px;
             height: 2px;
-            background: linear-gradient(90deg, transparent, #1e3c72, transparent);
+            background: linear-gradient(90deg, transparent, var(--card-accent-color), transparent);
             border-radius: 2px;
             opacity: 0.3;
         }
@@ -291,12 +315,12 @@ if($user['status'] != 2){
         	width:25px;
         	height:25px;
         	display:block;
-        	fill:rgba(12,15,100,1);
+        	fill:var(--card-accent-color);
         	border-radius:50%;
         }
 
         .company-logo {
-            color: rgba(12,15,122,1);
+            color: var(--card-accent-color);
             padding: 2px 2px;
             font-weight: 800;
             font-size: 14px;
@@ -316,7 +340,7 @@ if($user['status'] != 2){
         	justify-content:center;
         	align-items:center;
         	border-radius: 50%;
-        	border: 2px solid #1e3c72;
+        	border: 2px solid var(--card-accent-color);
         	margin: 0 auto 4px;
         	overflow:hidden;
         }
@@ -325,7 +349,7 @@ if($user['status'] != 2){
             height:20mm;
             position:relative;
             border-radius: 50%;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             display:block;
         }
         .employee-info {
@@ -336,12 +360,12 @@ if($user['status'] != 2){
             font-size: 17px;
             margin-bottom: 1px;
             font-weight: 700;
-            color: rgba(12,15,122,1);
+            color: var(--card-accent-color);
         }
 
         .employee-info p {
             font-size: 12px;
-            color: #666;
+            color: var(--card-text-secondary);
             margin-bottom: 10px;
         }
 
@@ -356,7 +380,7 @@ if($user['status'] != 2){
         	position:relative;
             width: 60px;
             height: 60px;
-            background: rgba(12,15,122,1);
+            background: var(--card-accent-color);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -381,14 +405,14 @@ if($user['status'] != 2){
         .terms-section h4 {
             font-size: 10px;
             margin-bottom: 2px;
-            color: #1e3c72;
+            color: var(--card-accent-color);
             font-weight: 700;
         }
 
         .terms-section p {
             font-size: 8.5px;
             line-height: 1.4;
-            color: #666;
+            color: var(--card-text-secondary);
             margin-bottom: 10px;
         }
 
@@ -402,14 +426,14 @@ if($user['status'] != 2){
         .contact-info h4 {
             font-size: 10px;
             margin-bottom: 2px;
-            color: rgba(12,15,122,1);
+            color: var(--card-accent-color);
             font-weight: 700;
         }
 
         .contact-info p {
             font-size: 8.5px;
             margin-bottom: 2px;
-            color: #555;
+            color: var(--card-text-primary);
         }
         
         .comp h4{
@@ -422,7 +446,7 @@ if($user['status'] != 2){
         .barcode {
             font-weight:300;
             font-size:20px;
-            color: rgba(12,15,122,1);
+            color: var(--card-accent-color);
             letter-spacing:-2.5px;
             margin:0px auto;
         }
@@ -452,7 +476,7 @@ if($user['status'] != 2){
         }
 
         .download-btn {
-            background: linear-gradient(45deg, rgba(12,15,122,1), rgba(82,55,160,1));
+            background: var(--accent-gradient);
             color: white;
             box-shadow: 0 8px 20px rgba(30, 60, 114, 0.3);
         }
@@ -666,6 +690,25 @@ if($user['status'] != 2){
                 this.style.transform = isFlipped ? 'rotateY(180deg)' : 'translateY(0)';
             });
         });*/
+    </script>
+    <script>
+        (function() {
+            const html = document.documentElement;
+            const applyTheme = (theme) => {
+                html.setAttribute('data-theme', theme);
+            };
+            
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else if (prefersDark) {
+                applyTheme('dark');
+            } else {
+                applyTheme('light');
+            }
+        })();
     </script>
 </body>
 </html>

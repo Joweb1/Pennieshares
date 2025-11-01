@@ -40,11 +40,11 @@
 
         <div class="header-actions">
           <a class="btn primary" href="login">
-            <span class="material-icons-outlined">login</span>
             <span class="btn-text">Sign In</span>
+            <span class="material-icons-outlined">login</span>
           </a>
           <button class="menu" id="burger-menu" aria-label="Open menu">
-            <span class="material-icons-outlined">menu</span>
+            <span class="material-icons-outlined">more_vert</span>
           </button>
         </div>
       </div>
@@ -95,7 +95,7 @@
           <div class="badge"><span class="material-icons-outlined">shield_lock</span> Advanced Encryption</div>
         </div>
       </div>
-      <video src="assets/videos/hero.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-left"></video>
+      <img src="assets/images/hero-img.png" alt="Hero Image" class="video-placeholder" data-aos="fade-left">
     </div>
   </section>
 
@@ -115,7 +115,7 @@
           <span class="pill"><span class="material-icons-outlined">devices</span> Cross‑Platform</span>
         </div>
       </div>
-      <video src="assets/videos/checkportfolio.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-right"></video>
+      <img src="assets/images/home2-img.png" alt="Check Portfolio Image" class="video-placeholder" data-aos="fade-right">
     </div>
   </section>
 
@@ -150,7 +150,7 @@
   <!-- ───────── SECURITY & CONTROL ───────── -->
   <section>
     <div class="container split">
-      <video src="assets/videos/encryption.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-right"></video>
+      <img src="assets/images/home3-img.png" alt="Encryption Image" class="video-placeholder" data-aos="fade-right">
       <div>
         <div class="sec-head" data-aos="fade-up">
           <h3>Security &amp; Control</h3>
@@ -249,7 +249,7 @@
       </div>
 
       <div class="sp-24"></div>
-      <video src="assets/videos/webmobile.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
+      <img src="assets/images/home4-img.png" alt="Web and Mobile Image" class="video-placeholder" data-aos="fade-up">
     </div>
   </section>
 
@@ -260,7 +260,7 @@
         <h3>Stocks &amp; ETFs</h3>
         <p>Discover, analyze, and invest in a wide range of assets with transparent execution.</p>
       </div>
-      <video src="assets/videos/marketchart.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
+      <img src="assets/images/home5-img.png" alt="Market Chart Image" class="video-placeholder" data-aos="fade-up">
     </div>
   </section>
 
@@ -270,7 +270,7 @@
         <h3>Business &amp; API</h3>
         <p>Build on Pennieshares — integrate market data and trading with secure, well‑documented APIs.</p>
       </div>
-      <video src="assets/videos/developersapi.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
+      <img src="assets/images/home6-img.png" alt="Developers API Image" class="video-placeholder" data-aos="fade-up">
     </div>
   </section>
 
@@ -286,7 +286,7 @@
           <!-- Blog Post 1 -->
           <div class="swiper-slide">
             <div class="blog-card">
-              <video src="assets/videos/checkportfolio.mp4" muted playsinline class="blog-card-video"></video>
+              <img src="assets/images/home7-img.png" alt="Blog Image" class="blog-card-video">
               <h4>The Future of Investing</h4>
               <p class="muted">Explore how technology is reshaping the investment landscape.</p>
               <a href="#" class="read-more">Read More &rarr;</a>
@@ -295,7 +295,7 @@
           <!-- Blog Post 2 -->
           <div class="swiper-slide">
             <div class="blog-card">
-              <video src="assets/videos/developersapi.mp4" muted playsinline class="blog-card-video"></video>
+              <img src="assets/images/home8-img.png" alt="Blog Image" class="blog-card-video">
               <h4>Understanding Market Trends</h4>
               <p class="muted">A deep dive into identifying and leveraging market trends.</p>
               <a href="#" class="read-more">Read More &rarr;</a>
@@ -304,7 +304,7 @@
           <!-- Blog Post 3 -->
           <div class="swiper-slide">
             <div class="blog-card">
-              <video src="assets/videos/encryption.mp4" muted playsinline class="blog-card-video"></video>
+              <img src="assets/images/home9-img.png" alt="Blog Image" class="blog-card-video">
               <h4>Security in Open-Source Platforms</h4>
               <p class="muted">How open-source models enhance security and transparency.</p>
               <a href="#" class="read-more">Read More &rarr;</a>
@@ -313,7 +313,7 @@
           <!-- Blog Post 4 -->
           <div class="swiper-slide">
             <div class="blog-card">
-              <video src="assets/videos/hero.mp4" muted playsinline class="blog-card-video"></video>
+              <img src="assets/images/home10-img.png" alt="Blog Image" class="blog-card-video">
               <h4>Your First Investment: A Guide</h4>
               <p class="muted">Everything you need to know to make your first investment.</p>
               <a href="#" class="read-more">Read More &rarr;</a>
@@ -345,7 +345,7 @@
         <h3>News</h3>
         <p>Stay informed with curated market news and platform announcements.</p>
       </div>
-      <video src="assets/videos/newsfeed.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
+      <img src="assets/images/home11-img.png" alt="Newsfeed Image" class="video-placeholder" data-aos="fade-up">
     </div>
   </section>
 
@@ -355,7 +355,7 @@
         <h3>Stock of the Month</h3>
         <p>A monthly deep‑dive into a notable company or ETF — thesis, risks, and key metrics.</p>
       </div>
-      <video src="assets/videos/stockofmonth.mp4" muted playsinline class="video-placeholder boomerang-video" data-aos="fade-up"></video>
+      <img src="assets/images/home12-img.png" alt="Stock of the Month Image" class="video-placeholder" data-aos="fade-up">
     </div>
   </section>
 

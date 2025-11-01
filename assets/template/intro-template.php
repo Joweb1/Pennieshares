@@ -320,9 +320,7 @@
       <nav class="nav-mobile" id="nav-mobile">
         <div class="nav-mobile-header">
             <div class="nav-mobile-brand">
-              <svg class="icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M24 4C25.7818 14.2173 33.7827 22.2182 44 24C33.7827 25.7818 25.7818 33.7827 24 44C22.2182 33.7827 14.2173 25.7818 4 24C14.2173 22.2182 22.2182 14.2173 24 4Z" fill="currentColor"></path>
-              </svg>
+              <img src="/assets/images/logo.png" alt="Pennieshares Logo" style="height: 30px;">
               <span>Pennieshares</span>
             </div>
           <button id="close-menu-btn" aria-label="Close menu">
@@ -354,12 +352,7 @@
       <!-- Header -->
       <header class="main-header">
         <div class="header-brand">
-          <button id="burger-menu" aria-label="Open menu">
-            <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <svg class="icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M24 4C25.7818 14.2173 33.7827 22.2182 44 24C33.7827 25.7818 25.7818 33.7827 24 44C22.2182 33.7827 14.2173 25.7818 4 24C14.2173 22.2182 22.2182 14.2173 24 4Z" fill="currentColor"></path>
-          </svg>
+          <img src="/assets/images/logo.png" alt="Pennieshares Logo" style="height: 40px;">
           <h2 class="brand-name">Pennieshares</h2>
         </div>
 
@@ -393,6 +386,9 @@
              <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
              <span class="notification-badge" id="notification-badge"></span>
           </a>
+          <button id="burger-menu" aria-label="Open menu">
+            <span class="material-icons-outlined">more_vert</span>
+          </button>
         </div>
       </header>
 

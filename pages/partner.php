@@ -526,14 +526,14 @@ $referral_link = "https://pennieshares.com/register?partnercode=" . htmlspecialc
     </div>
 
     <div class="action-buttons">
-        <button class="btn btn-primary">
+        <button id="share-btn" class="btn btn-primary">
             <span class="material-icons-outlined">share</span>
             <span>Share</span>
         </button>
-        <button class="btn btn-secondary">
+        <a href="/terms" class="btn btn-secondary">
             <span class="material-icons-outlined">description</span>
             <span>View Terms</span>
-        </button>
+        </a>
     </div>
 
     <h3>Partner History</h3>
@@ -598,6 +598,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }).catch(err => {
                 console.error('Failed to copy: ', err);
             });
+        });
+    }
+
+    // --- SHARE FUNCTIONALITY ---
+    const shareBtn = document.getElementById('share-btn');
+    if (shareBtn && navigator.share) {
+        shareBtn.addEventListener('click', () => {
+            const referralLink = document.getElementById('referral-link-input').value;
+            navigator.share({
+                title: 'Join me on Pennieshares!',
+                text: 'Join me on Pennieshares and start your investment journey.',
+                url: referralLink
+            }).then(() => {
+                console.log('Thanks for sharing!');
+            }).catch(console.error);
         });
     }
 });

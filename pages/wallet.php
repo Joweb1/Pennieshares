@@ -572,7 +572,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
     .broker-stats-card-v2 {
         position: relative;
         overflow: hidden;
-        background: linear-gradient(135deg, #3B82F6, #EF4444);
+        background: linear-gradient(135deg, #0000CD, #B22222);
         color: #ffffff;
         padding: 1.5rem;
     }
@@ -691,7 +691,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
             <div class="broker-card-bg-circle-1"></div>
             <div class="broker-card-bg-circle-2"></div>
             <div class="stat-header">
-                <p class="stat-title">Broker Referrals</p>
+                <p class="stat-title">Broker Activity</p>
                 <span class="material-icons" style="color: rgba(255,255,255,0.8);">card_travel</span>
             </div>
             <div class="broker-stats-v2-content">
