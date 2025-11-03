@@ -31,15 +31,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get all verified users
+// Get search query
+$searchEmail = filter_input(INPUT_GET, 'search_email', FILTER_SANITIZE_EMAIL);
+
+// Get verified users
 try {
-    $stmt = $pdo->prepare("
+    $sql = "
         SELECT id as user_id, username, email, status
         FROM users
         WHERE status = 2
-        ORDER BY username ASC
-    ");
-    $stmt->execute();
+    ";
+    $params = [];
+
+    if ($searchEmail) {
+        $sql .= " AND email LIKE :search_email";
+        $params[':search_email'] = '%' . $searchEmail . '%';
+    }
+
+    $sql .= " ORDER BY username ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $verifiedUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Database error: " . $e->getMessage());
@@ -140,6 +152,68 @@ include __DIR__ . '/../assets/template/intro-template.php';
         font-size: 3rem;
         margin-bottom: 1rem;
     }
+
+    .search-form {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-wrapper {
+        position: relative;
+        flex-grow: 1;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        top: 50%;
+        left: 15px;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 24px;
+    }
+
+    .search-form input {
+        width: 100%;
+        padding: 0.8rem 0.8rem 0.8rem 50px;
+        border: 1px solid var(--border-color);
+        border-radius: 25px;
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+    }
+
+    .search-form input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.2);
+    }
+
+    .search-form button {
+        padding: 0.8rem 1.2rem;
+        border: none;
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: 25px;
+        cursor: pointer;
+        margin-left: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+    }
+
+    .search-form button i {
+        font-size: 20px;
+    }
+
+    .user-count {
+        text-align: right;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
 </style>
 
 <div class="verification-container">
@@ -150,6 +224,18 @@ include __DIR__ . '/../assets/template/intro-template.php';
             <?php echo htmlspecialchars($message); ?>
         </div>
     <?php endif; ?>
+
+    <div class="user-count">
+        <p>Total Verified Users: <?= count($verifiedUsers) ?></p>
+    </div>
+
+    <form method="GET" class="search-form">
+        <div class="search-wrapper">
+            <i class="material-icons-outlined">search</i>
+            <input type="text" name="search_email" placeholder="Search by email..." value="<?= htmlspecialchars($searchEmail ?? '') ?>" onchange="this.form.submit()">
+        </div>
+        <button type="submit" style="display: none;">Search</button>
+    </form>
 
     <?php if (empty($verifiedUsers)): ?>
         <div class="empty-state">

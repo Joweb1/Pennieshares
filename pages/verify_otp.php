@@ -10,12 +10,41 @@ generateCsrfToken();
 $message = '';
 $error = '';
 
-if (!isset($_SESSION['reset_email'])) {
+if (!isset($_SESSION['reset_email']) && !isset($_SESSION['registration_email_for_otp'])) {
     header("Location: forgot_password");
     exit;
 }
 
-$email = $_SESSION['reset_email'];
+$email = $_SESSION['reset_email'] ?? $_SESSION['registration_email_for_otp'];
+
+if (isset($_SESSION['just_redirected']) && $_SESSION['just_redirected'] === true) {
+    unset($_SESSION['just_redirected']);
+    $user = getUserByEmail($pdo, $email);
+    if ($user) {
+        $otp = generateAndStoreOtp($pdo, $user['id']);
+        if ($otp) {
+            $data = [
+                'username' => $user['username'],
+                'otp_code' => $otp
+            ];
+            $template = 'otp_email';
+            $subject = 'Password Reset OTP';
+            if (isset($_SESSION['unverified_user']) && $_SESSION['unverified_user'] === true) {
+                unset($_SESSION['unverified_user']);
+                $subject = 'Verify Your Pennieshares Account';
+            }
+            if (sendNotificationEmail($template, $data, $email, $subject)) {
+                $message = "An OTP has been sent to your email.";
+            } else {
+                $error = "Failed to send OTP email. Please try again.";
+            }
+        } else {
+            $error = "Failed to generate new OTP. Please try again.";
+        }
+    } else {
+        $error = "User not found.";
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     verifyCsrfToken($_POST['csrf_token'] ?? '');
@@ -23,42 +52,69 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'resend_otp') {
         $user = getUserByEmail($pdo, $email);
         if ($user) {
-            $otp = generateAndStoreOtp($pdo, $user['id']);
-            if ($otp) {
-                $data = [
-                    'username' => $user['username'],
-                    'otp_code' => $otp
-                ];
-                if (sendNotificationEmail('otp_email', $data, $email, 'Password Reset OTP')) {
-                    $message = "A new OTP has been sent to your email.";
+            if (!isset($_SESSION['otp_expires_at']) || time() > $_SESSION['otp_expires_at']) {
+                $otp = generateAndStoreOtp($pdo, $user['id']);
+                if ($otp) {
+                    $data = [
+                        'username' => $user['username'],
+                        'otp_code' => $otp
+                    ];
+                    $data = [
+                        'username' => $user['username'],
+                        'otp_code' => $otp
+                    ];
+                    $template = 'otp_email';
+                    $subject = 'Password Reset OTP';
+                    if (isset($_SESSION['registration_email_for_otp'])) {
+                        $subject = 'Verify Your Pennieshares Account';
+                    }
+                    if (sendNotificationEmail($template, $data, $email, $subject)) {
+                        $message = "A new OTP has been sent to your email.";
+                    } else {
+                        $error = "Failed to resend OTP email. Please try again.";
+                    }
                 } else {
-                    $error = "Failed to resend OTP email. Please try again.";
+                    $error = "Failed to generate new OTP. Please try again.";
                 }
             } else {
-                $error = "Failed to generate new OTP. Please try again.";
+                $error = "Please wait until the current OTP expires before requesting a new one.";
             }
         } else {
             $error = "User not found.";
         }
-    }
-} else {
-    $otp_code = trim($_POST['otp_code']);
+    } else if (isset($_POST['otp_code'])) {
+        $otp_code = trim($_POST['otp_code']);
 
-    if (empty($otp_code)) {
-        $error = "Please enter the OTP code.";
-    } else {
-        $user = getUserByEmail($pdo, $email);
-        if ($user) {
-            if (verifyOtp($pdo, $user['id'], $otp_code)) {
-                $_SESSION['otp_verified'] = true;
-                $_SESSION['user_id_for_reset'] = $user['id'];
-                header("Location: reset_password");
-                exit;
-            } else {
-                $error = "Invalid or expired OTP code.";
-            }
+        if (empty($otp_code)) {
+            $error = "Please enter the OTP code.";
         } else {
-            $error = "User not found.";
+            $user = getUserByEmail($pdo, $email);
+            if ($user) {
+                if (verifyOtp($pdo, $user['id'], $otp_code)) {
+                    if (isset($_SESSION['registration_email_for_otp'])) {
+                        if (verifyUserEmail($pdo, $user['id'])) {
+                            if (isset($_SESSION['user']) && $_SESSION['user']['id'] == $user['id']) {
+                                $_SESSION['user']['is_verified'] = 1;
+                            }
+                            unset($_SESSION['registration_email_for_otp']);
+                            $_SESSION['success_message'] = "Email verified successfully! You can now log in.";
+                            header('Location: /login');
+                            exit();
+                        } else {
+                            $error = "Failed to verify account. Please try again.";
+                        }
+                    } else {
+                        $_SESSION['otp_verified'] = true;
+                        $_SESSION['user_id_for_reset'] = $user['id'];
+                        header("Location: reset_password");
+                        exit;
+                    }
+                } else {
+                    $error = "Invalid or expired OTP code.";
+                }
+            } else {
+                $error = "User not found.";
+            }
         }
     }
 }
@@ -284,23 +340,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     document.addEventListener('DOMContentLoaded', function() {
         let countdownElement = document.getElementById('countdown');
         let resendBtn = document.getElementById('resendOtpBtn');
-        let timeLeft = 60;
+        let otpExpiresAt = <?= $_SESSION['otp_expires_at'] ?? 0 ?>;
+        let timeLeft = Math.max(0, otpExpiresAt - Math.floor(Date.now() / 1000));
 
         function startCountdown() {
-            resendBtn.disabled = true;
-            countdownElement.textContent = `(in ${timeLeft}s)`;
-
-            let timer = setInterval(function() {
-                timeLeft--;
+            if (timeLeft > 0) {
+                resendBtn.disabled = true;
                 countdownElement.textContent = `(in ${timeLeft}s)`;
 
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    resendBtn.disabled = false;
-                    countdownElement.textContent = '';
-                    timeLeft = 60; // Reset for next time
-                }
-            }, 1000);
+                let timer = setInterval(function() {
+                    timeLeft--;
+                    countdownElement.textContent = `(in ${timeLeft}s)`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        resendBtn.disabled = false;
+                        countdownElement.textContent = '';
+                    }
+                }, 1000);
+            } else {
+                resendBtn.disabled = false;
+                countdownElement.textContent = '';
+            }
         }
 
         resendBtn.addEventListener('click', function() {

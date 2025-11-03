@@ -2,6 +2,62 @@
 const themeToggle = document.getElementById('theme-toggle-mobile');
 const html = document.documentElement;
 
+// --- Cache Clearing Logic --- 
+const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+const CACHE_VERSION_KEY = 'pennieshares_cache_version';
+const LAST_CACHE_CLEAR_KEY = 'pennieshares_last_cache_clear';
+
+function clearPenniesharesCache() {
+    console.log('Clearing Pennieshares cache and stored info...');
+
+    // Clear all localStorage for the domain
+    localStorage.clear();
+
+    // Clear all sessionStorage for the domain
+    sessionStorage.clear();
+
+    // Unregister Service Workers if any
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+                registration.unregister().then(success => {
+                    if (success) {
+                        console.log('Service Worker unregistered:', registration.scope);
+                    } else {
+                        console.error('Service Worker unregistration failed:', registration.scope);
+                    }
+                }).catch(error => {
+                    console.error('Error unregistering Service Worker:', error);
+                });
+            }
+        }).catch(error => {
+            console.error('Error getting Service Worker registrations:', error);
+        });
+    }
+
+    // Update the timestamp for the next clear
+    localStorage.setItem(LAST_CACHE_CLEAR_KEY, Date.now().toString());
+    localStorage.setItem(CACHE_VERSION_KEY, Date.now().toString()); // Update cache version
+
+    // Force a hard reload to ensure fresh assets are loaded
+    window.location.reload(true);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const lastCacheClear = localStorage.getItem(LAST_CACHE_CLEAR_KEY);
+    const currentTimestamp = Date.now();
+
+    // Check if it's the first visit or if a week has passed since the last clear
+    if (!lastCacheClear || (currentTimestamp - parseInt(lastCacheClear, 10) > ONE_WEEK_IN_MS)) {
+        clearPenniesharesCache();
+    }
+
+    // ... rest of your existing script.js code ...
+});
+
+// --- End Cache Clearing Logic ---
+
+
 if (themeToggle && html) {
     const applyTheme = (theme) => {
         html.setAttribute('data-theme', theme);

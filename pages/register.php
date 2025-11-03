@@ -65,7 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if ($success) {
                 $_SESSION['success_message'] = "Registration successful! An OTP has been sent to your email for verification.";
-                header("Location: verify_registration_otp");
+                $_SESSION['reset_email'] = $email;
+                $_SESSION['just_redirected'] = true;
+                header("Location: verify_otp");
                 exit;
             } else {
                 $errors = "Registration failed. Please try again.";

@@ -123,7 +123,9 @@ function loginUser($pdo, $email, $password) {
         if (password_verify($password, $user['password'])) {
             if ($user['is_verified'] == 0) {
                 $_SESSION['registration_email_for_otp'] = $user['email']; // Store email for OTP page
-                header("Location: verify_registration_otp");
+                $_SESSION['unverified_user'] = true;
+                $_SESSION['just_redirected'] = true;
+                header("Location: verify_otp");
                 exit();
             }
             if (password_needs_rehash($user['password'], PASSWORD_BCRYPT)) {
@@ -170,10 +172,11 @@ function clearResetToken($userId) {
 
 function generateAndStoreOtp($pdo, $userId) {
     $otp = str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
-    $expiresAt = date('Y-m-d H:i:s', strtotime('+1 minute')); // OTP expires in 1 minute
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+3 minutes')); // OTP expires in 3 minutes
 
     $stmt = $pdo->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?");
     if ($stmt->execute([$otp, $expiresAt, $userId])) {
+        $_SESSION['otp_expires_at'] = strtotime($expiresAt);
         return $otp;
     }
     return false;
@@ -228,7 +231,7 @@ function check_auth() {
     // Check if user is verified
     if (($_SESSION['user']['is_verified'] ?? 0) == 0) {
         $_SESSION['registration_email_for_otp'] = $_SESSION['user']['email']; // Store email for OTP page
-        header("Location: verify_registration_otp");
+        header("Location: verify_otp");
         exit;
     }
     if (($_SESSION['user']['status'] ?? 0) == 0) {
@@ -718,13 +721,11 @@ function getTotalUserCount($pdo, $searchQuery = '') {
 }
 
 function getUnverifiedUsers($pdo, $searchQuery = '') {
-    $sql = "SELECT id, username, fullname, email FROM users WHERE is_verified = 0";
+    $sql = "SELECT id, username, fullname, email FROM users WHERE status = 1";
     $params = [];
 
     if (!empty($searchQuery)) {
-        $sql .= " AND (username LIKE ? OR email LIKE ? OR fullname LIKE ?)";
-        $params[] = '%' . $searchQuery . '%';
-        $params[] = '%' . $searchQuery . '%';
+        $sql .= " AND email LIKE ?";
         $params[] = '%' . $searchQuery . '%';
     }
 
@@ -1107,18 +1108,22 @@ function toggleFavoriteBroker($pdo, $userId, $brokerUserId) {
     }
 }
 
-function getBrokerDetailsByPartnerCode($pdo, $partnerCode) {
+function getUserDetailsByPartnerCode($pdo, $partnerCode, $isBroker = false) {
     try {
         $stmt = $pdo->prepare("SELECT id, username, partner_code, is_broker FROM users WHERE partner_code = ?");
         $stmt->execute([$partnerCode]);
-        $broker = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($broker && $broker['is_broker'] == 1) {
-            return $broker;
+        if ($isBroker) {
+            if ($user && $user['is_broker'] == 1) {
+                return $user;
+            }
+            return null; // Not found or not a broker
+        } else {
+            return $user;
         }
-        return null; // Not found or not a broker
     } catch (PDOException $e) {
-        error_log("Error getting broker details by partner code: " . $e->getMessage());
+        error_log("Error getting user details by partner code: " . $e->getMessage());
         return null;
     }
 }

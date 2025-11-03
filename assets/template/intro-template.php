@@ -205,7 +205,22 @@
       .header-actions {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.5rem; /* Adjust gap for closer icons */
+      }
+
+      .action-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: transparent;
+        transition: background-color 0.2s ease;
+      }
+
+      .action-button:hover {
+        background-color: var(--bg-tertiary);
       }
 
       #burger-menu {
@@ -387,7 +402,7 @@
              <span class="notification-badge" id="notification-badge"></span>
           </a>
           <button id="burger-menu" aria-label="Open menu">
-            <span class="material-icons-outlined">more_vert</span>
+            <span class="material-icons-outlined">menu</span>
           </button>
         </div>
       </header>

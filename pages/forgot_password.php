@@ -20,22 +20,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } else {
         $user = getUserByEmail($pdo, $email);
         if ($user) {
-            $otp = generateAndStoreOtp($pdo, $user['id']);
-            if ($otp) {
-                $data = [
-                    'username' => $user['username'],
-                    'otp_code' => $otp
-                ];
-                if (sendNotificationEmail('otp_email', $data, $email, 'Password Reset OTP')) {
-                    $_SESSION['reset_email'] = $email; // Store email in session for OTP verification
-                    header("Location: verify_otp");
-                    exit;
-                } else {
-                    $error = "Failed to send OTP email. Please try again.";
-                }
-            } else {
-                $error = "Failed to generate OTP. Please try again.";
-            }
+            $_SESSION['reset_email'] = $email;
+            $_SESSION['just_redirected'] = true;
+            header("Location: verify_otp");
+            exit;
         } else {
             $error = "No account found with that email address.";
         }

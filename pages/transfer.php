@@ -34,18 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'verify_broker_code') {
         $partnerCode = trim($_POST['partner_code'] ?? '');
         if (!empty($partnerCode)) {
-            $foundBroker = getBrokerDetailsByPartnerCode($pdo, $partnerCode);
-            if ($foundBroker) {
-                $_SESSION['transfer_broker_id'] = $foundBroker['id'];
-                $_SESSION['transfer_broker_username'] = $foundBroker['username'];
-                $_SESSION['transfer_broker_partner_code'] = $foundBroker['partner_code'];
+            $isBroker = $currentUser['is_broker'] == 1;
+            $foundUser = getUserDetailsByPartnerCode($pdo, $partnerCode, !$isBroker);
+            if ($foundUser) {
+                $_SESSION['transfer_broker_id'] = $foundUser['id'];
+                $_SESSION['transfer_broker_username'] = $foundUser['username'];
+                $_SESSION['transfer_broker_partner_code'] = $foundUser['partner_code'];
+                $_SESSION['transfer_recipient_is_broker'] = $foundUser['is_broker'];
                 $transferStep = 2; // Move to next step
             } else {
-                $_SESSION['transfer_message'] = "Broker with partner code '{$partnerCode}' not found or is not a certified broker.";
+                $_SESSION['transfer_message'] = "User with partner code '{$partnerCode}' not found.";
                 $_SESSION['transfer_status'] = 'error';
             }
         } else {
-            $_SESSION['transfer_message'] = "Please enter a broker partner code.";
+            $_SESSION['transfer_message'] = "Please enter a partner code.";
             $_SESSION['transfer_status'] = 'error';
         }
         header("Location: transfer"); // Redirect after processing step 1
@@ -361,13 +363,22 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         stroke: #ef4444;
         animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
     }
+
+    .loading-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 4px solid #fff;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+    }
 </style>
 
 <div class="container mx-auto p-2 max-w-md">
     <?php if ($transferStep === 1): ?>
         <!-- Step 1: Enter Broker Partner Code -->
         <div class="mb-6">
-            <h1 class="text-xl font-bold text-text-primary-light dark:text-text-primary-dark text-center">Broker Partner Code</h1>
+            <h1 class="text-xl font-bold text-text-primary-light dark:text-text-primary-dark text-center">Partner Code</h1>
         </div>
         <?php if (!empty($transferMessage) && $transferStatus === 'error'): ?>
             <div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded relative mb-4 text-center mx-auto" role="alert">
@@ -378,13 +389,17 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         <form method="POST" action="transfer">
             <input type="hidden" name="action" value="verify_broker_code">
             <div class="relative mb-2">
-                <input id="partner_code_input" name="partner_code" class="w-full bg-surface-light dark:bg-surface-dark border-none rounded-lg py-3 pl-4 pr-12 text-text-primary-light dark:text-text-primary-dark placeholder-text-secondary-light dark:placeholder-text-secondary-dark focus:ring-2 focus:ring-primary" placeholder="Enter Broker Partner Code" type="text" required value="<?php echo htmlspecialchars($_POST['partner_code'] ?? ''); ?>"/>
+                <input id="partner_code_input" name="partner_code" class="w-full bg-surface-light dark:bg-surface-dark border-none rounded-lg py-3 pl-4 pr-12 text-text-primary-light dark:text-text-primary-dark placeholder-text-secondary-light dark:placeholder-text-secondary-dark focus:ring-2 focus:ring-primary" placeholder="Enter Partner Code" type="text" required value="<?php echo htmlspecialchars($_POST['partner_code'] ?? ''); ?>"/>
                 <span class="material-icons absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary-light dark:text-text-secondary-dark text-2xl">
                     qr_code_scanner
                 </span>
             </div>
             <p class="text-sm text-center text-text-secondary-light dark:text-text-secondary-dark mb-6">
-                Ask a certified broker for his/her partner code or check their ID Card.
+                <?php if ($currentUser['is_broker'] == 1): ?>
+                    You can transfer to any user or broker by entering their partner code.
+                <?php else: ?>
+                    Ask a certified broker for his/her partner code or check their ID Card.
+                <?php endif; ?>
             </p>
             <div class="bg-surface-light dark:bg-surface-dark rounded-xl p-4">
                 <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4">
@@ -460,7 +475,7 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                         <input type="hidden" name="action" value="go_back_to_step1">
                         <button type="submit" class="material-icons">arrow_back_ios</button>
                     </form>
-                    <h1 class="text-lg font-medium ml-2">Transfer to Broker</h1>
+                    <h1 class="text-lg font-medium ml-2">Transfer</h1>
                 </div>
                 <a class="text-primary text-sm font-medium" href="#">Transactions</a>
             </header>
@@ -476,7 +491,12 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                         <span class="material-icons text-text-secondary-light dark:text-text-secondary-dark text-3xl">person</span>
                     </div>
                     <div>
-                        <p class="font-semibold text-text-primary-light dark:text-text-primary-dark"><?php echo htmlspecialchars($brokerDetails['username'] ?? 'N/A'); ?></p>
+                        <p class="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            <?php echo htmlspecialchars($brokerDetails['username'] ?? 'N/A'); ?>
+                            <?php if ($_SESSION['transfer_recipient_is_broker'] == 1): ?>
+                                <span class="text-xs text-white bg-green-500 rounded-full px-2 py-1">Broker</span>
+                            <?php endif; ?>
+                        </p>
                         <p class="text-sm text-text-secondary-light dark:text-text-secondary-dark"><?php echo htmlspecialchars($brokerDetails['partner_code'] ?? 'N/A'); ?></p>
                     </div>
                 </div>
@@ -549,8 +569,9 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
                 <input type="hidden" name="transfer_amount" id="form_transfer_amount_pin" value="<?php echo htmlspecialchars($transferAmount ?? ''); ?>">
                 <input type="hidden" name="transaction_pin" id="transaction_pin_hidden">
                 
-                <button type="submit" id="confirmTransferBtn" class="w-full bg-primary hover:bg-primary/90 text-white py-4 rounded-full text-xl font-medium mb-6" disabled>
-                    Confirm Transfer
+                <button type="submit" id="confirmTransferBtn" class="w-full bg-primary hover:bg-primary/90 text-white py-4 rounded-full text-xl font-medium mb-6 flex items-center justify-center" disabled>
+                    <span class="button-text">Confirm Transfer</span>
+                    <span class="loading-spinner" style="display: none;"></span>
                 </button>
             </form>
             <div id="pinNumpad" class="grid grid-cols-3 gap-y-4 text-center text-3xl font-light">
@@ -743,6 +764,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmTransferBtn = document.getElementById('confirmTransferBtn');
     const transactionPinHidden = document.getElementById('transaction_pin_hidden');
     const togglePinVisibility = document.getElementById('togglePinVisibility');
+    const transferForm = document.getElementById('transferForm');
+
+    if (transferForm) {
+        transferForm.addEventListener('submit', function() {
+            if (transactionPinHidden.value.length === 4) {
+                confirmTransferBtn.disabled = true;
+                confirmTransferBtn.querySelector('.button-text').style.display = 'none';
+                confirmTransferBtn.querySelector('.loading-spinner').style.display = 'block';
+            }
+        });
+    }
 
     // Check if we should show the PIN modal immediately (i.e., $transferStep === 3)
     const currentTransferStep = <?php echo json_encode($transferStep); ?>;

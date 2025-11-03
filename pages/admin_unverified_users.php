@@ -85,33 +85,66 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         border: 1px solid #f5c6cb;
     }
 
-    .search-bar {
-        margin-bottom: 1.5rem;
+    .search-form {
         display: flex;
-        gap: 10px;
+        align-items: center;
+        margin-bottom: 1.5rem;
     }
 
-    .search-bar input[type="text"] {
+    .search-wrapper {
+        position: relative;
         flex-grow: 1;
-        padding: 10px;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        top: 50%;
+        left: 15px;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 24px;
+    }
+
+    .search-form input {
+        width: 100%;
+        padding: 0.8rem 0.8rem 0.8rem 50px;
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        background-color: var(--bg-secondary);
+        border-radius: 25px;
+        background-color: var(--bg-tertiary);
         color: var(--text-primary);
+        transition: all 0.3s ease;
     }
 
-    .search-bar button {
-        padding: 10px 15px;
-        background-color: var(--accent-color);
-        color: var(--accent-text);
+    .search-form input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.2);
+    }
+
+    .search-form button {
+        padding: 0.8rem 1.2rem;
         border: none;
-        border-radius: 8px;
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: 25px;
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        margin-left: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
     }
 
-    .search-bar button:hover {
-        background-color: #0a69c4;
+    .search-form button i {
+        font-size: 20px;
+    }
+
+    .user-count {
+        text-align: right;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
     }
 
     .table-responsive {
@@ -223,12 +256,17 @@ require_once __DIR__ . '/../assets/template/intro-template.php';
         </div>
     <?php endif; ?>
 
-    <div class="search-bar">
-        <form method="GET" action="admin_unverified_users">
-            <input type="text" name="search" placeholder="Search by username, email, or fullname..." value="<?php echo htmlspecialchars($search_query); ?>">
-            <button type="submit">Search</button>
-        </form>
+    <div class="user-count">
+        <p>Total Unverified Users: <?= count($unverified_users) ?></p>
     </div>
+
+    <form method="GET" class="search-form">
+        <div class="search-wrapper">
+            <i class="material-icons-outlined">search</i>
+            <input type="text" name="search" placeholder="Search by email..." value="<?= htmlspecialchars($search_query ?? '') ?>" onchange="this.form.submit()">
+        </div>
+        <button type="submit" style="display: none;">Search</button>
+    </form>
 
     <?php if (empty($unverified_users)): ?>
         <div class="empty-state">
