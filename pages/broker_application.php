@@ -38,12 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $email_sent = sendBrokerApplicationEmails($pdo, $user, $formData);
 
         if ($email_sent) {
-            $success_message = "Application submitted successfully! We'll review your information and get back to you soon.";
+            $form_submitted_successfully = true;
         } else {
             $error_message = "There was an error submitting your application. Please try again later.";
         }
     }
 }
+
+$show_success_modal = $form_submitted_successfully ?? false;
 
 ?>
 <!DOCTYPE html>
@@ -55,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght @400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <style>
     :root {
       --primary-color: #3498db; /* Changed to blue */
@@ -306,6 +309,94 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       color: #721c24;
     }
     
+    /* Modal Styles */
+    .modal {
+      display: flex; /* Hidden by default */
+      position: fixed; /* Stay in place */
+      z-index: 1000; /* Sit on top */
+      left: 0;
+      top: 0;
+      width: 100%; /* Full width */
+      height: 100%; /* Full height */
+      overflow: auto; /* Enable scroll if needed */
+      background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background-color: var(--background-color);
+      margin: auto;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      width: 90%;
+      max-width: 500px;
+      text-align: center;
+      position: relative;
+      color: var(--text-primary);
+    }
+
+    .close-button {
+      color: var(--text-secondary);
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close-button:hover,
+    .close-button:focus {
+      color: var(--primary-color);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .modal-icon {
+      color: var(--success-color);
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .modal-content h2 {
+      font-size: 1.75rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .modal-content p {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    .whatsapp-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #25D366; /* WhatsApp green */
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background-color 0.2s ease;
+    }
+
+    .whatsapp-button:hover {
+      background-color: #1DA851; /* Darker green */
+    }
+
+    .whatsapp-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      margin-right: 0.5rem;
+      filter: invert(1); /* Make icon white for dark background */
+    }
+    
     /* Responsive adjustments */
     @media (max-width: 640px) {
       .radio-group {
@@ -343,9 +434,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   </header>
   
   <main>
-    <?php if ($success_message): ?>
-        <div class="message success-message"><?= htmlspecialchars($success_message) ?></div>
-    <?php endif; ?>
     <?php if ($error_message): ?>
         <div class="message error-message-top"><?= htmlspecialchars($error_message) ?></div>
     <?php endif; ?>
@@ -490,10 +578,47 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <p>Your application draft is automatically saved.</p>
   </footer>
 </div>
+
+<!-- Success Modal -->
+<div id="successModal" class="modal">
+  <div class="modal-content">
+    <span class="close-button">&times;</span>
+    <div class="modal-icon">
+      <span class="material-icons-outlined">check_circle_outline</span>
+    </div>
+    <h2>Application Submitted!</h2>
+    <p>Your broker application has been successfully submitted. We will review it shortly.</p>
+    <p>For immediate assistance or to follow up, please send us a direct message on WhatsApp.</p>
+    <a href="https://wa.link/czjxfk" target="_blank" class="whatsapp-button">
+      <span class="material-icons-outlined whatsapp-icon">whatsapp</span>
+      Send Message on WhatsApp
+    </a>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('brokerForm');
     const submitBtn = document.getElementById('submitBtn');
+    const successModal = document.getElementById('successModal');
+    const closeButton = successModal.querySelector('.close-button');
+
+    // PHP variable to JS
+    const showSuccessModal = <?php echo json_encode($show_success_modal); ?>;
+
+    if (showSuccessModal) {
+        successModal.style.display = 'flex';
+    }
+
+    closeButton.addEventListener('click', function() {
+        successModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target == successModal) {
+            successModal.style.display = 'none';
+        }
+    });
 
     form.addEventListener('submit', function() {
         // Basic validation check
